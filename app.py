@@ -28,7 +28,7 @@ if _logo_b64:
     _logo_bg_css = f"""
 .stApp::before {{
     content: "";
-    position: fixed;
+    position: absolute;
     inset: 0;
     z-index: 0;
     pointer-events: none;
@@ -61,12 +61,14 @@ footer, #MainMenu {
     background: #07060a;
     position: relative;
     overflow-x: hidden;
+    isolation: isolate;
+    min-height: 100vh;
 }
 
 .stApp::after {
     content: "";
-    position: fixed;
-    inset: -10%;
+    position: absolute;
+    inset: 0;
     z-index: 0;
     pointer-events: none;
     background:
