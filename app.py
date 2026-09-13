@@ -34,10 +34,11 @@ if _logo_b64:
     pointer-events: none;
     background-image: url('data:image/png;base64,{_logo_b64}');
     background-repeat: no-repeat;
-    background-position: center 6%;
-    background-size: 780px;
-    opacity: 0.05;
+    background-position: center 18%;
+    background-size: 1100px;
+    opacity: 0.07;
     filter: invert(1) blur(1px);
+    animation: bgBreathe 14s ease-in-out infinite alternate;
 }}
 """
 
@@ -150,7 +151,10 @@ __LOGO_BG_CSS__
     color: rgba(235, 230, 245, 0.8);
 }
 
-[data-testid="stFileUploader"] button {
+/* Solo el botón DENTRO de la zona de arrastre (elegir/reemplazar canción).
+   El botón "✕" para quitar el archivo ya subido vive fuera de esa zona y
+   no se toca aquí, así no hereda un texto que no le corresponde. */
+[data-testid="stFileUploader"] section button {
     font-size: 0 !important;
     background: linear-gradient(135deg, #8b5cf6, #6d3ff0) !important;
     color: white !important;
@@ -159,8 +163,8 @@ __LOGO_BG_CSS__
     padding: 0.5rem 1.1rem !important;
     margin-top: 14px !important;
 }
-[data-testid="stFileUploader"] button::after {
-    content: "Buscar archivo";
+[data-testid="stFileUploader"] section button::after {
+    content: "Elegir canción";
     font-size: 0.8rem;
     font-weight: 600;
     font-family: 'Inter', sans-serif;
@@ -176,26 +180,72 @@ iframe {
 st.markdown(CSS_TEMPLATE.replace("__LOGO_BG_CSS__", _logo_bg_css), unsafe_allow_html=True)
 
 # ----------------------------------------------------------------------------
+# "HUMO" DE FONDO (capas difusas en movimiento, puramente decorativas)
+# ----------------------------------------------------------------------------
+st.markdown("""
+<div class="aki-smoke aki-smoke-1"></div>
+<div class="aki-smoke aki-smoke-2"></div>
+<div class="aki-smoke aki-smoke-3"></div>
+<style>
+.aki-smoke {
+    position: absolute;
+    z-index: 0;
+    pointer-events: none;
+    border-radius: 50%;
+    filter: blur(70px);
+    opacity: 0.5;
+}
+.aki-smoke-1 {
+    top: -120px; left: -140px; width: 420px; height: 420px;
+    background: radial-gradient(circle, rgba(139,92,246,0.35), transparent 70%);
+    animation: smokeDrift1 16s ease-in-out infinite alternate;
+}
+.aki-smoke-2 {
+    top: 260px; right: -160px; width: 460px; height: 460px;
+    background: radial-gradient(circle, rgba(78,205,255,0.28), transparent 70%);
+    animation: smokeDrift2 20s ease-in-out infinite alternate;
+}
+.aki-smoke-3 {
+    bottom: -180px; left: 30%; width: 500px; height: 500px;
+    background: radial-gradient(circle, rgba(240,166,58,0.18), transparent 70%);
+    animation: smokeDrift3 24s ease-in-out infinite alternate;
+}
+@keyframes smokeDrift1 {
+    0% { transform: translate(0, 0) scale(1); }
+    100% { transform: translate(60px, 40px) scale(1.15); }
+}
+@keyframes smokeDrift2 {
+    0% { transform: translate(0, 0) scale(1); }
+    100% { transform: translate(-50px, 30px) scale(1.1); }
+}
+@keyframes smokeDrift3 {
+    0% { transform: translate(0, 0) scale(1); }
+    100% { transform: translate(30px, -40px) scale(1.2); }
+}
+</style>
+""", unsafe_allow_html=True)
+
+# ----------------------------------------------------------------------------
 # ENCABEZADO / LOGO
 # ----------------------------------------------------------------------------
 if _logo_b64:
     st.markdown(
         f"""
-        <div style="display:flex; justify-content:center; margin-bottom:-14px;">
-            <div style="position:relative; width:118px; height:118px; display:flex;
+        <div style="display:flex; justify-content:center; margin-bottom:-10px;">
+            <div style="position:relative; width:168px; height:168px; display:flex;
                         align-items:center; justify-content:center;">
-                <div style="position:absolute; inset:-20px; border-radius:50%;
-                            background: radial-gradient(circle, rgba(139,92,246,0.45), transparent 70%);
-                            filter: blur(8px); animation: akiPulse 3.2s ease-in-out infinite;"></div>
-                <div style="position:absolute; inset:-2px; border-radius:50%;
-                            background: conic-gradient(from 0deg, #8b5cf6, #4ecdff, #f0a63a, #8b5cf6);
-                            animation: akiSpin 5s linear infinite; opacity:0.9;"></div>
-                <div style="position:relative; width:100px; height:100px; border-radius:50%;
+                <div style="position:absolute; inset:-30px; border-radius:50%;
+                            background: radial-gradient(circle, rgba(139,92,246,0.5), transparent 70%);
+                            filter: blur(12px); animation: akiPulse 3.2s ease-in-out infinite;"></div>
+                <div style="position:absolute; inset:-3px; border-radius:50%;
+                            background: conic-gradient(from 0deg, #8b5cf6, #4ecdff, #f0a63a, #ff5fae, #8b5cf6);
+                            animation: akiSpin 5s linear infinite; opacity:0.95;"></div>
+                <div style="position:relative; width:144px; height:144px; border-radius:50%;
                             background: radial-gradient(circle, #1c1926 55%, #100e16 100%);
                             display:flex; align-items:center; justify-content:center;
-                            box-shadow: inset 0 0 0 1px rgba(255,255,255,0.06);">
-                    <img src="data:image/png;base64,{_logo_b64}" width="66"
-                         style="filter: invert(1) drop-shadow(0 0 10px rgba(200,182,255,0.55));" />
+                            box-shadow: inset 0 0 0 1px rgba(255,255,255,0.07);">
+                    <img src="data:image/png;base64,{_logo_b64}" width="98"
+                         style="filter: invert(1) drop-shadow(0 0 14px rgba(200,182,255,0.6));" />
                 </div>
             </div>
         </div>
@@ -203,7 +253,7 @@ if _logo_b64:
         @keyframes akiSpin {{ to {{ transform: rotate(360deg); }} }}
         @keyframes akiPulse {{
             0%, 100% {{ opacity: 0.55; transform: scale(1); }}
-            50% {{ opacity: 0.9; transform: scale(1.08); }}
+            50% {{ opacity: 0.9; transform: scale(1.1); }}
         }}
         </style>
         """,
@@ -211,22 +261,33 @@ if _logo_b64:
     )
 else:
     st.markdown(
-        "<div style='text-align:center; font-size:64px; margin-bottom:-10px;'>😺</div>",
+        "<div style='text-align:center; font-size:88px; margin-bottom:-10px;'>😺</div>",
         unsafe_allow_html=True
     )
 
 st.markdown("""
-<div style="text-align:center; margin-top:2px; margin-bottom:1.6rem;">
-    <div style="font-family:'JetBrains Mono', monospace; font-weight:700; font-size:1.9rem;
-                letter-spacing:2px; background: linear-gradient(135deg, #c9b6ff, #8b5cf6 60%, #5b34d6);
-                -webkit-background-clip:text; -webkit-text-fill-color:transparent;">
-        AKI AUDIO
-    </div>
+<div style="text-align:center; margin-top:6px; margin-bottom:1.6rem;">
+    <div class="aki-title">AKI AUDIO</div>
     <div style="font-family:'JetBrains Mono', monospace; font-size:0.72rem; letter-spacing:3px;
-                color:rgba(200,190,220,0.45); margin-top:2px; text-transform:uppercase;">
+                color:rgba(200,190,220,0.5); margin-top:4px; text-transform:uppercase;">
         Convertidor de tono y velocidad · Listo para Roblox
     </div>
 </div>
+<style>
+.aki-title {
+    font-family: 'JetBrains Mono', monospace; font-weight:800; font-size:2.3rem;
+    letter-spacing:3px;
+    background: linear-gradient(90deg, #8b5cf6, #4ecdff, #f0a63a, #ff5fae, #8b5cf6);
+    background-size: 300% auto;
+    -webkit-background-clip:text; -webkit-text-fill-color:transparent;
+    background-clip:text;
+    animation: akiShimmer 6s linear infinite;
+    filter: drop-shadow(0 0 18px rgba(139,92,246,0.35));
+}
+@keyframes akiShimmer {
+    to { background-position: 300% center; }
+}
+</style>
 """, unsafe_allow_html=True)
 
 # ----------------------------------------------------------------------------
@@ -288,6 +349,24 @@ if archivo_subido is not None:
 # REPRODUCTOR + CONVERSOR (100% client-side)
 # ----------------------------------------------------------------------------
 if st.session_state.audio_data is not None:
+    _loading_slot = st.empty()
+    _loading_slot.markdown("""
+    <div style="position:relative; z-index:1; display:flex; flex-direction:column;
+                align-items:center; gap:14px; padding:48px 20px; text-align:center;">
+        <div style="width:52px; height:52px; border-radius:50%;
+                    border:3px solid rgba(139,92,246,0.18);
+                    border-top-color:#a882ff;
+                    animation: akiLoadSpin 0.85s linear infinite;"></div>
+        <div style="font-family:'JetBrains Mono', monospace; font-size:0.78rem;
+                    letter-spacing:1.5px; color:rgba(220,213,240,0.75);">
+            CARGANDO REPRODUCTOR Y OPCIONES DE TONO…
+        </div>
+    </div>
+    <style>
+    @keyframes akiLoadSpin { to { transform: rotate(360deg); } }
+    </style>
+    """, unsafe_allow_html=True)
+
     audio_b64 = base64.b64encode(st.session_state.audio_data).decode()
     duracion_original = st.session_state.duracion_original
     nombre_archivo = st.session_state.audio_name
@@ -1005,5 +1084,5 @@ updateFill(document.getElementById("volSlider"));
         .replace("__AUDIO_B64__", audio_b64)
     )
 
-    with st.spinner("🎧 Preparando el reproductor y las opciones de tono..."):
-        components.html(html_player, height=760, scrolling=False)
+    components.html(html_player, height=760, scrolling=False)
+    _loading_slot.empty()
