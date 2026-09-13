@@ -34,10 +34,10 @@ if _logo_b64:
     pointer-events: none;
     background-image: url('data:image/png;base64,{_logo_b64}');
     background-repeat: no-repeat;
-    background-position: center 10%;
-    background-size: 700px;
+    background-position: center 6%;
+    background-size: 780px;
     opacity: 0.05;
-    filter: blur(1px) grayscale(0.3);
+    filter: invert(1) blur(1px);
 }}
 """
 
@@ -68,14 +68,22 @@ footer, #MainMenu {
 .stApp::after {
     content: "";
     position: absolute;
-    inset: 0;
+    inset: -6%;
     z-index: 0;
     pointer-events: none;
     background:
-        radial-gradient(38% 32% at 18% 8%, rgba(139,92,246,0.16), transparent 60%),
-        radial-gradient(34% 30% at 88% 14%, rgba(78,205,255,0.10), transparent 60%),
-        radial-gradient(45% 38% at 50% 100%, rgba(124,77,255,0.12), transparent 65%),
+        radial-gradient(38% 32% at 18% 8%, rgba(139,92,246,0.20), transparent 60%),
+        radial-gradient(34% 30% at 88% 14%, rgba(78,205,255,0.14), transparent 60%),
+        radial-gradient(30% 26% at 10% 85%, rgba(240,166,58,0.08), transparent 60%),
+        radial-gradient(45% 38% at 50% 100%, rgba(124,77,255,0.14), transparent 65%),
         radial-gradient(circle at 50% 0%, #17141f 0%, #0a090d 55%, #060506 100%);
+    animation: bgBreathe 14s ease-in-out infinite alternate;
+    transform-origin: center;
+}
+
+@keyframes bgBreathe {
+    0% { transform: scale(1) translate(0, 0); }
+    100% { transform: scale(1.06) translate(-1%, 1%); }
 }
 
 __LOGO_BG_CSS__
@@ -88,17 +96,25 @@ __LOGO_BG_CSS__
 }
 
 [data-testid="stFileUploader"] {
-    border: 1.5px dashed rgba(168, 130, 255, 0.35);
-    border-radius: 18px;
-    background: linear-gradient(160deg, rgba(255,255,255,0.035), rgba(255,255,255,0.01));
+    position: relative;
+    border: 1.5px dashed rgba(168, 130, 255, 0.4);
+    border-radius: 20px;
+    background: linear-gradient(160deg, rgba(139,92,246,0.06), rgba(255,255,255,0.015));
     backdrop-filter: blur(6px);
-    padding: 1.2rem 1rem;
+    padding: 2.4rem 1.4rem;
+    min-height: 168px;
     transition: border-color .2s ease, background .2s ease;
+    animation: dashFlow 5s ease-in-out infinite;
+}
+
+@keyframes dashFlow {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(139,92,246,0); border-color: rgba(168,130,255,0.4); }
+    50% { box-shadow: 0 0 26px 0 rgba(139,92,246,0.16); border-color: rgba(168,130,255,0.7); }
 }
 
 [data-testid="stFileUploader"]:hover {
-    border-color: rgba(168, 130, 255, 0.7);
-    background: linear-gradient(160deg, rgba(168,130,255,0.07), rgba(255,255,255,0.01));
+    border-color: rgba(168, 130, 255, 0.85);
+    background: linear-gradient(160deg, rgba(168,130,255,0.10), rgba(255,255,255,0.015));
 }
 
 [data-testid="stFileUploader"] section {
@@ -106,17 +122,48 @@ __LOGO_BG_CSS__
     border: none;
 }
 
-[data-testid="stFileUploaderDropzoneInstructions"] span,
-[data-testid="stFileUploaderDropzoneInstructions"] small {
-    color: rgba(235, 230, 245, 0.75) !important;
+/* Reemplaza el texto en inglés del dropzone por instrucciones en español */
+[data-testid="stFileUploaderDropzoneInstructions"] {
+    font-size: 0 !important;
+    display: flex !important;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+}
+[data-testid="stFileUploaderDropzoneInstructions"] svg { display: none; }
+[data-testid="stFileUploaderDropzoneInstructions"]::before {
+    content: "🎵";
+    font-size: 2.4rem;
+    line-height: 1;
+    display: block;
+    margin-bottom: 4px;
+    filter: drop-shadow(0 0 10px rgba(139,92,246,0.5));
+}
+[data-testid="stFileUploaderDropzoneInstructions"]::after {
+    content: "Arrastra tu canción aquí, o haz clic para buscarla\A MP3 · WAV · OGG · FLAC";
+    white-space: pre-line;
+    font-family: 'Inter', sans-serif;
+    font-size: 0.85rem;
+    font-weight: 500;
+    line-height: 1.6;
+    text-align: center;
+    color: rgba(235, 230, 245, 0.8);
 }
 
 [data-testid="stFileUploader"] button {
+    font-size: 0 !important;
     background: linear-gradient(135deg, #8b5cf6, #6d3ff0) !important;
     color: white !important;
     border: none !important;
     border-radius: 10px !important;
-    font-weight: 600 !important;
+    padding: 0.5rem 1.1rem !important;
+    margin-top: 14px !important;
+}
+[data-testid="stFileUploader"] button::after {
+    content: "Buscar archivo";
+    font-size: 0.8rem;
+    font-weight: 600;
+    font-family: 'Inter', sans-serif;
 }
 
 iframe {
@@ -135,16 +182,30 @@ if _logo_b64:
     st.markdown(
         f"""
         <div style="display:flex; justify-content:center; margin-bottom:-14px;">
-            <div style="position:relative; width:110px; height:110px; display:flex;
+            <div style="position:relative; width:118px; height:118px; display:flex;
                         align-items:center; justify-content:center;">
-                <div style="position:absolute; inset:-14px; border-radius:50%;
-                            background: radial-gradient(circle, rgba(139,92,246,0.35), transparent 70%);
-                            filter: blur(6px);"></div>
-                <img src="data:image/png;base64,{_logo_b64}" width="92"
-                     style="position:relative; border-radius:20px;
-                            box-shadow: 0 6px 22px rgba(139,92,246,0.35);" />
+                <div style="position:absolute; inset:-20px; border-radius:50%;
+                            background: radial-gradient(circle, rgba(139,92,246,0.45), transparent 70%);
+                            filter: blur(8px); animation: akiPulse 3.2s ease-in-out infinite;"></div>
+                <div style="position:absolute; inset:-2px; border-radius:50%;
+                            background: conic-gradient(from 0deg, #8b5cf6, #4ecdff, #f0a63a, #8b5cf6);
+                            animation: akiSpin 5s linear infinite; opacity:0.9;"></div>
+                <div style="position:relative; width:100px; height:100px; border-radius:50%;
+                            background: radial-gradient(circle, #1c1926 55%, #100e16 100%);
+                            display:flex; align-items:center; justify-content:center;
+                            box-shadow: inset 0 0 0 1px rgba(255,255,255,0.06);">
+                    <img src="data:image/png;base64,{_logo_b64}" width="66"
+                         style="filter: invert(1) drop-shadow(0 0 10px rgba(200,182,255,0.55));" />
+                </div>
             </div>
         </div>
+        <style>
+        @keyframes akiSpin {{ to {{ transform: rotate(360deg); }} }}
+        @keyframes akiPulse {{
+            0%, 100% {{ opacity: 0.55; transform: scale(1); }}
+            50% {{ opacity: 0.9; transform: scale(1.08); }}
+        }}
+        </style>
         """,
         unsafe_allow_html=True
     )
@@ -163,7 +224,7 @@ st.markdown("""
     </div>
     <div style="font-family:'JetBrains Mono', monospace; font-size:0.72rem; letter-spacing:3px;
                 color:rgba(200,190,220,0.45); margin-top:2px; text-transform:uppercase;">
-        Convertidor de tono &amp; velocidad · Roblox Ready
+        Convertidor de tono y velocidad · Listo para Roblox
     </div>
 </div>
 """, unsafe_allow_html=True)
@@ -258,14 +319,26 @@ if st.session_state.audio_data is not None:
       --line: rgba(255,255,255,0.08);
       --panel: rgba(255,255,255,0.035);
   }
-  .container { padding: 4px 2px 14px 2px; }
+  @property --aki-angle {
+      syntax: '<angle>';
+      initial-value: 0deg;
+      inherits: false;
+  }
+  .container { padding: 10px 4px 14px 4px; }
+  .card-halo {
+      position: relative;
+      border-radius: 22px;
+      padding: 1.5px;
+      background: conic-gradient(from var(--aki-angle), #8b5cf6, #4ecdff 30%, #f0a63a 55%, #8b5cf6 80%, #8b5cf6);
+      animation: akiRotate 7s linear infinite;
+      box-shadow: 0 16px 44px rgba(0,0,0,0.5);
+  }
+  @keyframes akiRotate { to { --aki-angle: 360deg; } }
   .card {
       position: relative;
       background: linear-gradient(160deg, #16141d 0%, #0e0c12 100%);
-      border: 1px solid var(--line);
-      border-radius: 20px;
+      border-radius: 20.5px;
       padding: 26px 24px 22px 24px;
-      box-shadow: 0 14px 40px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.04);
       overflow: hidden;
   }
   .card::before {
@@ -425,14 +498,15 @@ if st.session_state.audio_data is not None:
 </head>
 <body>
 <div class="container">
+ <div class="card-halo">
   <div class="card">
     <div class="track-header">
       <div class="filename">🎵 __NOMBRE_ARCHIVO__</div>
-      <div class="status">READY<span class="dur">__DURACION_TXT__</span></div>
+      <div class="status">LISTO<span class="dur">__DURACION_TXT__</span></div>
     </div>
 
     <div class="controls-row">
-      <button class="btn" id="previewBtn" onclick="togglePreview()">▶ PREVIEW</button>
+      <button class="btn" id="previewBtn" onclick="togglePreview()">▶ ESCUCHAR</button>
       <button class="btn is-auto" id="modeBtn" onclick="toggleMode()">MANUAL</button>
     </div>
 
@@ -475,6 +549,7 @@ if st.session_state.audio_data is not None:
 
     <audio id="audioHidden" src="data:audio/mp3;base64,__AUDIO_B64__"></audio>
   </div>
+ </div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/lamejs@1.2.1/lame.min.js" defer></script>
@@ -499,10 +574,10 @@ audioHidden.webkitPreservesPitch = false;
 audioHidden.msPreservesPitch = false;
 
 audioHidden.addEventListener("pause", () => {
-    document.getElementById("previewBtn").textContent = "▶ PREVIEW";
+    document.getElementById("previewBtn").textContent = "▶ ESCUCHAR";
 });
 audioHidden.addEventListener("ended", () => {
-    document.getElementById("previewBtn").textContent = "▶ PREVIEW";
+    document.getElementById("previewBtn").textContent = "▶ ESCUCHAR";
 });
 
 function base64ToArrayBuffer(b64) {
@@ -789,7 +864,7 @@ async function previewManual(isRefresh) {
         console.error(e);
         document.getElementById("inlineAlert").innerHTML =
             '<div class="inline-alert warn">⚠ No se pudo generar la vista previa. Intenta mover el slider de nuevo.</div>';
-        btn.textContent = "▶ PREVIEW";
+        btn.textContent = "▶ ESCUCHAR";
     }
     if (!isRefresh) btn.disabled = false;
 }
@@ -930,4 +1005,5 @@ updateFill(document.getElementById("volSlider"));
         .replace("__AUDIO_B64__", audio_b64)
     )
 
-    components.html(html_player, height=760, scrolling=False)
+    with st.spinner("🎧 Preparando el reproductor y las opciones de tono..."):
+        components.html(html_player, height=760, scrolling=False)
