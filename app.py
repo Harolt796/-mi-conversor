@@ -2,6 +2,7 @@ import streamlit as st
 import streamlit.components.v1 as components
 import os
 import io
+import json
 import mutagen
 import base64
 
@@ -34,9 +35,9 @@ if _logo_b64:
     pointer-events: none;
     background-image: url('data:image/png;base64,{_logo_b64}');
     background-repeat: no-repeat;
-    background-position: center 18%;
-    background-size: 1100px;
-    opacity: 0.07;
+    background-position: center 22%;
+    background-size: 1200px;
+    opacity: 0.1;
     filter: invert(1) blur(1px);
     animation: bgBreathe 14s ease-in-out infinite alternate;
 }}
@@ -66,6 +67,9 @@ footer, #MainMenu {
     min-height: 100vh;
 }
 
+/* IMPORTANTE: ninguna capa de este stack puede ser opaca de borde a borde,
+   o taparía la marca de agua del logo (.stApp::before) que va detrás.
+   El color base ya lo pone `.stApp { background: #07060a; }`. */
 .stApp::after {
     content: "";
     position: absolute;
@@ -76,8 +80,7 @@ footer, #MainMenu {
         radial-gradient(38% 32% at 18% 8%, rgba(139,92,246,0.20), transparent 60%),
         radial-gradient(34% 30% at 88% 14%, rgba(78,205,255,0.14), transparent 60%),
         radial-gradient(30% 26% at 10% 85%, rgba(240,166,58,0.08), transparent 60%),
-        radial-gradient(45% 38% at 50% 100%, rgba(124,77,255,0.14), transparent 65%),
-        radial-gradient(circle at 50% 0%, #17141f 0%, #0a090d 55%, #060506 100%);
+        radial-gradient(45% 38% at 50% 100%, rgba(124,77,255,0.14), transparent 65%);
     animation: bgBreathe 14s ease-in-out infinite alternate;
     transform-origin: center;
 }
@@ -173,25 +176,6 @@ __LOGO_BG_CSS__
 iframe {
     position: relative;
     z-index: 1;
-}
-
-[data-testid="stExpander"] {
-    border: 1px solid rgba(255,255,255,0.08) !important;
-    border-radius: 14px !important;
-    background: linear-gradient(160deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01)) !important;
-    margin: 14px 0 22px 0 !important;
-    overflow: hidden;
-}
-[data-testid="stExpander"] summary {
-    font-family: 'Inter', sans-serif !important;
-    font-weight: 600 !important;
-    color: #d9c8ff !important;
-}
-[data-testid="stExpander"] p, [data-testid="stExpander"] li {
-    color: rgba(230, 225, 245, 0.82) !important;
-    font-family: 'Inter', sans-serif !important;
-    font-size: 0.88rem !important;
-    line-height: 1.65 !important;
 }
 
 /* Optimización para celulares: menos desenfoque y menos animación simultánea */
@@ -403,22 +387,22 @@ if archivo_subido is not None:
             st.session_state.duracion_original = 0
 
 # ----------------------------------------------------------------------------
-# CONSEJOS Y RECOMENDACIONES
+# CONSEJOS Y RECOMENDACIONES (se muestran como notificaciones flotantes
+# dentro del reproductor, no como un menú aparte)
 # ----------------------------------------------------------------------------
-with st.expander("📋 Consejos y recomendaciones — léelo antes de subir a Roblox"):
-    st.markdown("""
-- ⏳ **Espera a que la música cargue por completo** antes de tocar los sliders — recién ahí puedes editar el tono y la velocidad.
-- 🎚️ **El nombre del archivo descargado trae la velocidad** que debes poner en el `PlaybackSpeed` de Roblox Studio para que el audio suene normal.
-- 🛠️ **Modo MANUAL** te deja ajustar tono y velocidad por separado si el modo automático no te da el resultado exacto que buscas.
-- ✏️ **Cambia el nombre del archivo antes de subirlo a Roblox** por uno que el filtro de texto acepte — si no, Roblox puede censurarlo o rechazarlo.
-- 🚫 **Evita canciones con lenguaje grosero o contenido explícito** — Roblox puede banear cuentas por subir audio no apto.
-- 👥 **Ten una cuenta secundaria para subir audios**, así evitas arriesgar tu cuenta principal si algún audio es marcado.
-- ©️ **Sube solo música que tengas derecho a usar** — si tiene derechos de autor de terceros, Roblox puede eliminarla o sancionar la cuenta.
-- 💾 **Guarda tu archivo original aparte** antes de convertir, por si luego quieres probar otro ajuste de tono o velocidad.
-- 🧪 **Prueba el audio convertido dentro de Roblox Studio** antes de publicarlo en tu juego, para confirmar que suena como esperas.
-- ⚠️ **Esta página no se hace responsable por baneos o sanciones dentro de Roblox** — el uso del audio convertido es bajo tu propia responsabilidad.
-- 🎮 **Apoya el proyecto**: únete a mi juego de Roblox y a la comunidad de Discord/WhatsApp de arriba — cualquier sugerencia es bienvenida.
-""")
+TIPS = [
+    "Espera a que la música cargue por completo antes de tocar los sliders.",
+    "El nombre del archivo descargado trae la velocidad que debes poner en PlaybackSpeed de Roblox Studio.",
+    "El modo MANUAL te deja ajustar tono y velocidad por separado.",
+    "Cambia el nombre del archivo antes de subirlo a Roblox por uno que el filtro de texto acepte, o te lo puede censurar.",
+    "Evita canciones con lenguaje grosero o contenido explícito: Roblox puede banear cuentas por audio no apto.",
+    "Ten una cuenta secundaria para subir audios y no arriesgar tu cuenta principal.",
+    "Sube solo música que tengas derecho a usar, o Roblox puede eliminarla o sancionar la cuenta.",
+    "Guarda tu archivo original aparte antes de convertir, por si quieres probar otro ajuste luego.",
+    "Prueba el audio convertido dentro de Roblox Studio antes de publicarlo en tu juego.",
+    "Esta página no se hace responsable por baneos dentro de Roblox: el uso del audio es bajo tu responsabilidad.",
+    "Únete a mi juego de Roblox y a la comunidad de Discord/WhatsApp para apoyar el proyecto.",
+]
 
 # ----------------------------------------------------------------------------
 # REPRODUCTOR + CONVERSOR (100% client-side)
@@ -449,6 +433,7 @@ if st.session_state.audio_data is not None:
     valores_js = "[" + ",".join(
         [f'{{"n":{v["n"]},"pitch":{v["pitch"]},"texto":"{v["texto"]}"}}' for v in QT_VALUES]
     ) + "]"
+    tips_js = json.dumps(TIPS, ensure_ascii=False)
 
     TEMPLATE = r"""
 <!DOCTYPE html>
@@ -650,6 +635,42 @@ if st.session_state.audio_data is not None:
       background: linear-gradient(135deg, #34d16f, #22c55e); color: #06210f;
       box-shadow: 0 4px 14px rgba(34,197,94,0.4);
   }
+
+  /* "Notificación" flotante con consejos, tipo mensaje de celular */
+  .aki-toast {
+      position: fixed;
+      left: 14px; right: 14px; bottom: 18px;
+      max-width: 380px;
+      margin: 0 auto;
+      display: flex; align-items: center; gap: 10px;
+      background: linear-gradient(160deg, #201c2b, #14121a);
+      border: 1px solid rgba(139,92,246,0.35);
+      border-radius: 16px;
+      padding: 12px 14px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.03);
+      cursor: pointer;
+      opacity: 0;
+      transform: translateY(24px) scale(0.97);
+      pointer-events: none;
+      transition: opacity .35s ease, transform .35s ease;
+      z-index: 50;
+  }
+  .aki-toast.show {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+      pointer-events: auto;
+  }
+  .aki-toast-icon { font-size: 1.4rem; flex-shrink: 0; }
+  .aki-toast-text {
+      font-family: 'Inter', sans-serif; font-size: 0.78rem; line-height: 1.4;
+      color: rgba(235,230,245,0.92); flex: 1;
+  }
+  .aki-toast-close {
+      font-size: 0.75rem; color: rgba(220,213,240,0.4); flex-shrink: 0; padding-left: 4px;
+  }
+  @media (prefers-reduced-motion: reduce) {
+      .aki-toast { transition: opacity .2s linear; transform: none !important; }
+  }
 </style>
 </head>
 <body>
@@ -706,6 +727,12 @@ if st.session_state.audio_data is not None:
     <audio id="audioHidden" src="data:audio/mp3;base64,__AUDIO_B64__"></audio>
   </div>
  </div>
+
+  <div id="akiToast" class="aki-toast" onclick="hideToast()">
+    <span class="aki-toast-icon">😺</span>
+    <span class="aki-toast-text"></span>
+    <span class="aki-toast-close">✕</span>
+  </div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/lamejs@1.2.1/lame.min.js" defer></script>
@@ -1243,6 +1270,41 @@ document.getElementById("toneSlider").addEventListener("input", function () {
 
 applyPitch();
 updateFill(document.getElementById("volSlider"));
+
+// ---------------- Notificaciones con consejos (tipo mensaje de celular) ----------------
+
+const TIPS = __TIPS_JS__;
+let toastAutoHideTimer = null;
+let lastTipIndex = -1;
+
+function showRandomTip() {
+    let idx = Math.floor(Math.random() * TIPS.length);
+    if (TIPS.length > 1 && idx === lastTipIndex) idx = (idx + 1) % TIPS.length;
+    lastTipIndex = idx;
+
+    const toast = document.getElementById("akiToast");
+    toast.querySelector(".aki-toast-text").textContent = TIPS[idx];
+    toast.classList.add("show");
+
+    clearTimeout(toastAutoHideTimer);
+    toastAutoHideTimer = setTimeout(hideToast, 9000);
+}
+
+function hideToast() {
+    document.getElementById("akiToast").classList.remove("show");
+    clearTimeout(toastAutoHideTimer);
+}
+
+function scheduleNextTip() {
+    const delayMs = (150 + Math.random() * 150) * 1000; // entre 2.5 y 5 minutos, al azar
+    setTimeout(() => {
+        showRandomTip();
+        scheduleNextTip();
+    }, delayMs);
+}
+
+setTimeout(showRandomTip, 6000); // el primer consejo aparece a los 6s de cargar
+scheduleNextTip();
 </script>
 </body>
 </html>
@@ -1255,6 +1317,7 @@ updateFill(document.getElementById("volSlider"));
         .replace("__LEN_VALUES__", str(len(QT_VALUES) - 1))
         .replace("__DEFAULT_IDX__", str(DEFAULT_IDX))
         .replace("__VALORES_JS__", valores_js)
+        .replace("__TIPS_JS__", tips_js)
         .replace("__DURACION_ORIGINAL__", str(duracion_original))
         .replace("__MAX_DUR__", str(MAX_DURATION_SEC))
         .replace("__NOMBRE_BASE__", nombre_base)
