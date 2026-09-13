@@ -2,7 +2,6 @@ import streamlit as st
 import streamlit.components.v1 as components
 import os
 from pydub import AudioSegment
-from pydub.effects import speedup
 import base64
 
 # ===== CONFIGURACIÓN =====
@@ -57,11 +56,11 @@ st.markdown("""
         color: white !important;
         border-radius: 10px;
         border: 2px solid #000;
-        padding: 10px 16px;
+        padding: 10px 24px;
         font-weight: bold;
         width: 100%;
         text-shadow: 1px 1px 2px #000 !important;
-        font-size: 14px;
+        font-size: 16px;
     }
     .stButton > button:hover {
         background-color: #7c3aed;
@@ -101,20 +100,24 @@ st.markdown("<p style='text-align: center;'>Sube tu canción, escucha cómo qued
 st.markdown("---")
 
 # ===== CONFIGURACIÓN =====
-MAX_DURATION_SEC = 7 * 60
-DEFAULT_PITCH = 0.794
-PRESETS = [1.26, 1.634, 1.682, 0.433, 0.397, 0.42, 0.386, 0.375]
+MAX_DURATION_SEC = 7 * 60  # 7 minutos (solo para advertencia)
+
+# ⚡ Únicos valores de effectSpeed que Roblox Studio acepta
+PRESETS = [0.375, 0.386, 0.397, 0.42, 0.433, 1.26, 1.634, 1.682]
+DEFAULT_PITCH = 0.42
 
 # Inicializar session state
 if "pitch_valor" not in st.session_state:
     st.session_state.pitch_valor = DEFAULT_PITCH
 
-# ===== FUNCIONES DE AUDIO =====
+# ===== FUNCIONES =====
 def cambiar_pitch(audio, factor):
     """
-    Cambia pitch y velocidad juntos (efecto vinilo / Audacity).
-    factor < 1 → audio MÁS LENTO y grave.
-    factor > 1 → audio MÁS RÁPIDO y agudo.
+    Cambia pitch Y velocidad juntos (efecto vinilo, igual que Audacity).
+    NO usa preservación de tono — la voz cambia con la velocidad.
+    
+    factor < 1 → audio más LENTO y grave.
+    factor > 1 → audio más RÁPIDO y agudo.
     """
     nuevos_frames = int(audio.frame_rate * factor)
     if nuevos_frames < 1000 or nuevos_frames > 200000:
@@ -123,13 +126,6 @@ def cambiar_pitch(audio, factor):
         "frame_rate": nuevos_frames
     }).set_frame_rate(audio.frame_rate)
 
-def ajustar_duracion(audio, max_seg=MAX_DURATION_SEC):
-    """Si el audio dura más del máximo, lo acelera sin cambiar pitch."""
-    duracion = len(audio) / 1000.0
-    if duracion <= max_seg:
-        return audio, 1.0
-    factor = duracion / max_seg
-    return speedup(audio, playback_speed=factor, chunk_size=150), factor
 
 # ===== SUBIR ARCHIVO =====
 archivo_subido = st.file_uploader("🎵 Arrastra tu canción aquí", type=["mp3", "wav", "ogg", "flac"])
@@ -143,9 +139,15 @@ if archivo_subido is not None:
     audio_bytes = open(temp_path, "rb").read()
     audio_b64 = base64.b64encode(audio_bytes).decode()
     
-    # ===== PASO 1: REPRODUCTOR EN VIVO =====
+    # ===== PASO 1: REPRODUCTOR =====
     st.markdown("### 🎧 Paso 1: Escucha cómo quedará")
-    st.caption("Mueve el slider mientras suena. **Pitch bajo = rápido y agudo (ardilla 🐿️).** **Pitch alto = lento y grave (ogro 👹).**")
+    st.caption("Elige cada valor en el menú y escucha cómo suena. **Pitch bajo = rápido y agudo (ardilla).** **Pitch alto = lento y grave.**")
+    
+    # Generar las opciones del selector
+    opciones_html = ""
+    for p in PRESETS:
+        selected = " selected" if p == DEFAULT_PITCH else ""
+        opciones_html += f'<option value="{p}"{selected}>{p}</option>'
     
     html_player = f"""
     <!DOCTYPE html>
@@ -170,6 +172,7 @@ if archivo_subido is not None:
             align-items: center;
             gap: 15px;
             margin-bottom: 10px;
+            flex-wrap: wrap;
         }}
         .controls label {{
             color: #ffffff;
@@ -178,33 +181,22 @@ if archivo_subido is not None:
             text-shadow: 1px 1px 2px #000;
             font-weight: bold;
         }}
-        input[type=range] {{
+        select {{
             flex: 1;
-            -webkit-appearance: none;
-            height: 8px;
-            border-radius: 5px;
-            background: #333;
-            outline: none;
-        }}
-        input[type=range]::-webkit-slider-thumb {{
-            -webkit-appearance: none;
-            width: 22px;
-            height: 22px;
-            border-radius: 50%;
-            background: #8b5cf6;
-            cursor: pointer;
-            border: 2px solid #000;
-        }}
-        .value {{
-            background: #8b5cf6;
-            padding: 6px 14px;
+            min-width: 120px;
+            padding: 10px;
             border-radius: 8px;
-            font-weight: bold;
-            min-width: 80px;
-            text-align: center;
+            background: #8b5cf6;
             color: white;
-            text-shadow: 1px 1px 2px #000;
             border: 2px solid #000;
+            font-weight: bold;
+            font-size: 15px;
+            cursor: pointer;
+            text-shadow: 1px 1px 2px #000;
+        }}
+        select option {{
+            background: #1a1a1a;
+            color: white;
         }}
         .info {{
             color: #ffffff;
@@ -220,114 +212,114 @@ if archivo_subido is not None:
             
             <div class="controls">
                 <label>🎚️ Pitch:</label>
-                <input type="range" id="pitch" min="0.1" max="2.0" step="0.001" value="0.794">
-                <span class="value" id="pitchValue">0.794</span>
+                <select id="pitchSelect">
+                    {opciones_html}
+                </select>
             </div>
             
             <div class="info">
-                💡 <b>Pitch bajo</b> = rápido y agudo (ardilla). <b>Pitch alto</b> = lento y grave.
-                <br>Este número es el <b>effectSpeed</b> que pondrás en Roblox Studio.
+                💡 Estos son los <b>únicos valores que Roblox Studio acepta</b>. 
+                Elige uno, escúchalo, y ese mismo número será tu <b>effectSpeed</b> en Roblox.
             </div>
         </div>
         
         <script>
             const audio = document.getElementById('audio');
-            const pitch = document.getElementById('pitch');
-            const pitchValue = document.getElementById('pitchValue');
+            const pitchSelect = document.getElementById('pitchSelect');
             
-            // 🔑 CLAVE: Desactiva preservesPitch para cambiar VELOCIDAD + TONO juntos
+            // 🔑 CLAVE: desactivar preservesPitch → cambia VELOCIDAD + TONO juntos
             audio.preservesPitch = false;
             audio.mozPreservesPitch = false;
             audio.webkitPreservesPitch = false;
             audio.msPreservesPitch = false;
             
             function applyPitch() {{
-                const pitchVal = parseFloat(pitch.value);
+                const pitchVal = parseFloat(pitchSelect.value);
+                audio.preservesPitch = false;
+                audio.mozPreservesPitch = false;
+                audio.webkitPreservesPitch = false;
                 audio.playbackRate = 1 / pitchVal;
-                pitchValue.textContent = pitchVal.toFixed(3);
             }}
             
             applyPitch();
-            pitch.addEventListener('input', applyPitch);
+            pitchSelect.addEventListener('change', applyPitch);
         </script>
     </body>
     </html>
     """
     
-    components.html(html_player, height=270)
+    components.html(html_player, height=250)
     
     st.markdown("---")
     
-    # ===== PASO 2: PRESETS =====
-    st.markdown("### 🎯 Paso 2: Valores predefinidos")
-    st.caption("Haz clic en uno para seleccionarlo automáticamente como pitch final.")
+    # ===== PASO 2: ELECCIÓN FINAL =====
+    st.markdown("### 🎯 Paso 2: Confirma el pitch para exportar")
+    st.caption("Estos son los únicos valores válidos para Roblox Studio.")
     
-    # Fila 1: primeros 4 presets
-    cols1 = st.columns(4)
-    for i, preset in enumerate(PRESETS[:4]):
-        if cols1[i].button(f"⚡ {preset}", key=f"preset_a_{i}"):
-            st.session_state.pitch_valor = preset
-            st.rerun()
-    
-    # Fila 2: últimos 4 presets
-    cols2 = st.columns(4)
-    for i, preset in enumerate(PRESETS[4:]):
-        if cols2[i].button(f"⚡ {preset}", key=f"preset_b_{i}"):
-            st.session_state.pitch_valor = preset
-            st.rerun()
-    
-    st.markdown("---")
-    
-    # ===== PASO 3: AJUSTE MANUAL Y CONVERSIÓN =====
-    st.markdown("### 🎚️ Paso 3: Confirma y convierte")
-    
-    pitch_usuario = st.slider(
-        "Pitch final para exportar",
-        min_value=0.1,
-        max_value=2.0,
+    pitch_usuario = st.select_slider(
+        "Pitch final (effectSpeed)",
+        options=PRESETS,
         value=st.session_state.pitch_valor,
-        step=0.001,
-        key="pitch_slider"
+        key="pitch_select_slider"
     )
     
-    st.info(f"📌 Pitch seleccionado actualmente: **{pitch_usuario:.3f}**")
-    st.caption("Este mismo número es el que pondrás como `effectSpeed` en Roblox Studio.")
+    st.info(f"📌 EffectSpeed seleccionado: **{pitch_usuario}** — este es el número exacto que pondrás en Roblox Studio.")
+    
+    st.markdown("---")
+    
+    # ===== PASO 3: CONVERSIÓN =====
+    st.markdown("### 🔄 Paso 3: Convierte y descarga")
     
     if st.button("🔄 Convertir y descargar"):
         with st.spinner("Procesando audio completo..."):
             try:
                 audio = AudioSegment.from_file(archivo_subido)
+                duracion_original = len(audio) / 1000.0
                 
-                # 🔑 CORRECCIÓN CLAVE: invertir para que el archivo se acelere cuando el pitch baja
-                # pitch=0.794 → factor=1.26 → audio se acelera 1.26x (suena agudo, dura menos)
+                # 🔑 CONVERSIÓN CORRECTA:
+                # El archivo debe estar a 1/pitch de velocidad para que
+                # al aplicar effectSpeed=pitch en Roblox, vuelva al original.
                 factor_conversion = 1.0 / pitch_usuario
                 audio_pitch = cambiar_pitch(audio, factor_conversion)
                 
-                # Ajustar si excede 7 minutos
-                audio_final, speed_factor = ajustar_duracion(audio_pitch, MAX_DURATION_SEC)
+                duracion_final = len(audio_pitch) / 1000.0
                 
-                # El effectSpeed es exactamente el pitch que eligió el usuario
-                effect_speed = round(pitch_usuario, 4)
+                # Advertencia si supera 7 minutos (sin aplicar speedup, eso rompería la conversión)
+                if duracion_final > MAX_DURATION_SEC:
+                    st.warning(
+                        f"⚠️ El audio convertido durará **{duracion_final/60:.2f} minutos** "
+                        f"(más de 7 min). Roblox podría rechazarlo. "
+                        f"Prueba con un pitch más bajo (más rápido)."
+                    )
                 
-                output_buffer = audio_final.export(format="mp3", bitrate="192k")
+                output_buffer = audio_pitch.export(format="mp3", bitrate="192k")
                 
                 st.success("¡Conversión exitosa! 🎉")
                 
+                # Preview del resultado final
                 st.markdown("### 🔊 Así suena tu archivo convertido (el que subirás a Roblox)")
                 st.audio(output_buffer, format="audio/mp3")
                 
-                col_a, col_b = st.columns(2)
+                # Métricas
+                col_a, col_b, col_c = st.columns(3)
                 with col_a:
-                    st.metric(label="EffectSpeed para Roblox", value=effect_speed)
+                    st.metric(label="EffectSpeed para Roblox", value=pitch_usuario)
                 with col_b:
-                    st.metric(label="Duración del archivo", value=f"{len(audio_final)/1000:.2f} seg")
+                    st.metric(label="Duración original", value=f"{duracion_original:.1f}s")
+                with col_c:
+                    st.metric(label="Duración final", value=f"{duracion_final:.1f}s")
                 
-                st.info(f"📌 En Roblox Studio, pon el **effectSpeed = {effect_speed}** para que la canción suene como el original.")
+                st.info(
+                    f"📌 **Instrucciones para Roblox Studio:**\n\n"
+                    f"1. Sube este MP3 a Roblox.\n"
+                    f"2. Configura el **effectSpeed = {pitch_usuario}**.\n"
+                    f"3. La canción sonará exactamente como el original. ✅"
+                )
                 
                 st.download_button(
                     label="📥 Descargar Audio Convertido",
                     data=output_buffer,
-                    file_name=f"{os.path.splitext(archivo_subido.name)[0]}_aki_{effect_speed}.mp3",
+                    file_name=f"{os.path.splitext(archivo_subido.name)[0]}_aki_{pitch_usuario}.mp3",
                     mime="audio/mpeg"
                 )
             except Exception as e:
