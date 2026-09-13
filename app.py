@@ -34,23 +34,39 @@ st.markdown("""
         border-radius: 15px; padding: 20px;
         backdrop-filter: blur(5px);
     }
+    
+    /* 🔑 Botón pegado al reproductor: sin margen arriba */
+    div.stButton {
+        margin-top: -20px;
+    }
     .stButton > button {
-        background-color: #8b5cf6; color: white !important;
-        border-radius: 10px; border: 2px solid #000;
-        padding: 12px 24px; font-weight: bold; width: 100%;
-        text-shadow: 1px 1px 2px #000 !important; font-size: 18px;
-    }
-    .stButton > button:hover { background-color: #7c3aed; }
-    .stMetric {
-        background-color: rgba(26, 26, 26, 0.92);
-        border-radius: 10px; padding: 15px;
+        background: linear-gradient(135deg, #7c3aed 0%, #8b5cf6 100%);
+        color: white !important;
+        border-radius: 0 0 15px 15px;
         border: 2px solid #8b5cf6;
+        border-top: none;
+        padding: 16px 24px;
+        font-weight: bold; width: 100%;
+        text-shadow: 1px 1px 2px #000 !important; font-size: 18px;
+        box-shadow: 0 4px 15px rgba(139, 92, 246, 0.5);
     }
+    .stButton > button:hover {
+        background: linear-gradient(135deg, #6d28d9 0%, #7c3aed 100%);
+        box-shadow: 0 4px 25px rgba(139, 92, 246, 0.8);
+    }
+    
     audio { width: 100%; border-radius: 10px; }
     .stAlert {
         background-color: rgba(26, 26, 26, 0.92);
         border-radius: 10px; border: 2px solid #8b5cf6;
     }
+    
+    /* Quitar separación del componente HTML */
+    iframe {
+        display: block;
+        margin-bottom: -14px;
+    }
+    
     .alerta-roja {
         background: linear-gradient(135deg, #7f1d1d 0%, #991b1b 50%, #dc2626 100%);
         border: 3px solid #ff0000;
@@ -87,7 +103,7 @@ st.markdown("---")
 
 # ===== CONSTANTES =====
 MAX_DURATION_SEC = 7 * 60
-DEFAULT_N = -29  # pitch ≈ 0.433
+DEFAULT_N = -29
 
 def format_pitch(value):
     rounded = round(value, 3)
@@ -116,7 +132,7 @@ def format_duracion(seg):
     s = int(seg % 60)
     return f"{m}:{s:02d}"
 
-# ===== LEER PITCH DEL URL (sincronizado por JS del iframe) =====
+# ===== LEER PITCH DEL URL =====
 pitch_url_str = st.query_params.get("aki_pitch", None)
 if pitch_url_str is not None:
     try:
@@ -144,14 +160,14 @@ if archivo_subido is not None:
     
     st.markdown(f"**📊 Duración original:** {format_duracion(duracion_original)} ({duracion_original:.1f} seg)")
     
-    # Encontrar el índice del pitch que viene del URL (para que el slider arranque donde el usuario lo dejó)
+    # Índice inicial
     idx_inicial = DEFAULT_IDX
     for i, v in enumerate(QT_VALUES):
         if abs(v["pitch"] - pitch_seleccionado) < 0.0005:
             idx_inicial = i
             break
     
-    # ===== REPRODUCTOR HTML (único menú) =====
+    # ===== REPRODUCTOR HTML (con borde inferior recto para pegar con el botón) =====
     valores_js = "[" + ",".join([f'{{"n":{v["n"]},"pitch":{v["pitch"]},"texto":"{v["texto"]}"}}' for v in QT_VALUES]) + "]"
     
     html_player = f"""
@@ -159,8 +175,14 @@ if archivo_subido is not None:
     <html>
     <head>
     <style>
-        body {{ background: transparent; font-family: Arial, sans-serif; margin: 0; padding: 10px; }}
-        .player {{ background: rgba(26, 26, 26, 0.95); border-radius: 15px; padding: 20px; border: 2px solid #8b5cf6; }}
+        body {{ background: transparent; font-family: Arial, sans-serif; margin: 0; padding: 0; }}
+        .player {{
+            background: rgba(26, 26, 26, 0.95);
+            border-radius: 15px 15px 0 0;
+            border: 2px solid #8b5cf6;
+            border-bottom: none;
+            padding: 20px 20px 18px 20px;
+        }}
         audio {{ width: 100%; margin-bottom: 15px; }}
         .row {{ display: flex; align-items: center; gap: 15px; margin-bottom: 12px; }}
         .row label {{ color: #fff; font-size: 14px; white-space: nowrap; text-shadow: 1px 1px 2px #000; font-weight: bold; min-width: 90px; }}
@@ -229,15 +251,12 @@ if archivo_subido is not None:
                 return m + ':' + String(s).padStart(2,'0');
             }}
             
-            // 🔑 Sincronizar el pitch con la URL del padre para que Streamlit lo lea
             function syncPitchToURL(pitchVal) {{
                 try {{
                     const url = new URL(window.parent.location.href);
                     url.searchParams.set('aki_pitch', pitchVal.toFixed(3));
                     window.parent.history.replaceState({{}}, '', url.toString());
-                }} catch(e) {{
-                    console.log('No se pudo sincronizar URL:', e);
-                }}
+                }} catch(e) {{}}
             }}
             
             function applyPitch() {{
@@ -252,7 +271,7 @@ if archivo_subido is not None:
                 pitchValue.textContent = v.texto;
                 
                 const durFinal = DURACION_ORIGINAL * pitchVal;
-                infoDuracion.innerHTML = '⏱️ Original: <b>' + formatDuracion(DURACION_ORIGINAL) + '</b> &nbsp;→&nbsp; Con este pitch: <b>' + formatDuracion(durFinal) + '</b>';
+                infoDuracion.innerHTML = '⏱️ Original: <b>' + formatDuracion(DURACION_ORIGINAL) + '</b> &nbsp;→&nbsp; Con este pitch: <b>' + formatDuracion(durFinal) + '</b> &nbsp;·&nbsp; effectSpeed: <b>' + v.texto + '</b>';
                 
                 if (durFinal > MAX_DUR) {{
                     alertaBox.innerHTML = '<div class="alerta">⚠️ <b>Recomendación:</b> Con este pitch el audio durará <b>' + formatDuracion(durFinal) + '</b>. Roblox recomienda máximo <b>7:00</b>. Considera bajar el pitch (más rápido) para asegurar la aceptación.</div>';
@@ -260,7 +279,6 @@ if archivo_subido is not None:
                     alertaBox.innerHTML = '<div class="ok">✅ Duración dentro del límite recomendado de Roblox (7:00).</div>';
                 }}
                 
-                // Sincronizar con Streamlit
                 syncPitchToURL(pitchVal);
             }}
             
@@ -276,81 +294,57 @@ if archivo_subido is not None:
     </html>
     """
     
-    components.html(html_player, height=400)
+    components.html(html_player, height=390)
     
-    # ===== INFO + ALERTA EN PYTHON (sincronizada con el slider) =====
-    duracion_estimada = duracion_original * pitch_seleccionado
-    
-    # Encontrar el paso n del pitch actual
-    n_seleccionado = None
-    for v in QT_VALUES:
-        if abs(v["pitch"] - pitch_seleccionado) < 0.0005:
-            n_seleccionado = v["n"]
-            break
-    
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        st.metric("effectSpeed", texto_seleccionado)
-    with col2:
-        st.metric("Duración estimada", format_duracion(duracion_estimada))
-    with col3:
-        st.metric("Paso (n)", f"{n_seleccionado}")
-    
-    # Alerta de recomendación
-    if duracion_estimada > MAX_DURATION_SEC:
-        exceso = duracion_estimada - MAX_DURATION_SEC
-        st.markdown(f"""
-        <div class="alerta-roja">
-            <h3>⚠️ Recomendación importante</h3>
-            <p><b>Duración original:</b> {format_duracion(duracion_original)}</p>
-            <p><b>Duración con este pitch ({texto_seleccionado}):</b> {format_duracion(duracion_estimada)}</p>
-            <p><b>Exceso sobre 7:00:</b> {exceso:.0f} seg ({exceso/60:.2f} min)</p>
-            <p>💡 Roblox Studio recomienda máximo 7:00 min por audio. Si dura más, <b>es posible que Roblox lo rechace</b> al subirlo.</p>
-            <p>✅ <b>Sugerencia:</b> Baja el pitch para acelerar el audio y reducir la duración.</p>
-            <p>📌 <b>Puedes intentar subirlo de todas formas</b>, es solo una recomendación.</p>
-        </div>
-        """, unsafe_allow_html=True)
-    else:
-        st.markdown(f"""
-        <div class="alerta-verde">
-            <p>✅ <b>¡Perfecto!</b> El audio durará <b>{format_duracion(duracion_estimada)}</b>, dentro del límite recomendado de Roblox.</p>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    # ===== ÚNICO BOTÓN DE CONVERTIR =====
+    # ===== BOTÓN DE CONVERTIR (pegado visualmente al reproductor) =====
     if st.button("🔄 Convertir audio"):
         with st.spinner("Procesando audio completo..."):
             try:
                 audio = AudioSegment.from_file(archivo_subido)
-                
-                # Usar el pitch del URL (que viene del slider del reproductor)
                 factor_conversion = 1.0 / pitch_seleccionado
                 audio_pitch = cambiar_pitch(audio, factor_conversion)
                 duracion_final = len(audio_pitch) / 1000.0
-                
                 output_buffer = audio_pitch.export(format="mp3", bitrate="192k")
                 
-                st.success(f"¡Conversión exitosa! 🎉 Duración final: {format_duracion(duracion_final)}")
-                
-                if duracion_final > MAX_DURATION_SEC:
-                    st.markdown(f"""
-                    <div class="alerta-roja">
-                        <h3>⚠️ El audio convertido supera los 7 minutos</h3>
-                        <p><b>Duración convertida:</b> {format_duracion(duracion_final)}</p>
-                        <p>Roblox podría rechazarlo. Considera un pitch más bajo. Puedes intentar subirlo de todas formas. 👍</p>
-                    </div>
-                    """, unsafe_allow_html=True)
-                
-                st.markdown("### 🔊 Así suena tu archivo convertido")
-                st.audio(output_buffer, format="audio/mp3")
-                
-                st.info(f"📌 **En Roblox Studio:** pon **effectSpeed = {texto_seleccionado}** en el Sound.")
-                
-                st.download_button(
-                    label="📥 Descargar Audio Convertido",
-                    data=output_buffer,
-                    file_name=f"{os.path.splitext(archivo_subido.name)[0]}_aki_{texto_seleccionado}.mp3",
-                    mime="audio/mpeg"
-                )
+                st.session_state["ultimo_resultado"] = {
+                    "buffer": output_buffer.getvalue() if hasattr(output_buffer, 'getvalue') else output_buffer,
+                    "duracion_final": duracion_final,
+                    "texto_pitch": texto_seleccionado,
+                    "nombre": f"{os.path.splitext(archivo_subido.name)[0]}_aki_{texto_seleccionado}.mp3"
+                }
             except Exception as e:
                 st.error(f"Error al procesar: {e}")
+    
+    # ===== RESULTADO =====
+    if "ultimo_resultado" in st.session_state:
+        res = st.session_state["ultimo_resultado"]
+        
+        st.success(f"¡Conversión exitosa! 🎉 Duración final: {format_duracion(res['duracion_final'])}")
+        
+        # Notificaciones / recomendaciones
+        if res["duracion_final"] > MAX_DURATION_SEC:
+            st.markdown(f"""
+            <div class="alerta-roja">
+                <h3>⚠️ El audio convertido supera los 7 minutos</h3>
+                <p><b>Duración convertida:</b> {format_duracion(res['duracion_final'])}</p>
+                <p>Roblox podría rechazarlo. Considera un pitch más bajo. <b>Puedes intentar subirlo de todas formas.</b> 👍</p>
+            </div>
+            """, unsafe_allow_html=True)
+        else:
+            st.markdown(f"""
+            <div class="alerta-verde">
+                <p>✅ <b>¡Perfecto!</b> El audio dura <b>{format_duracion(res['duracion_final'])}</b>, dentro del límite recomendado de Roblox.</p>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        st.markdown("### 🔊 Así suena tu archivo convertido")
+        st.audio(res["buffer"], format="audio/mp3")
+        
+        st.info(f"📌 **En Roblox Studio:** pon **effectSpeed = {res['texto_pitch']}** en el Sound.")
+        
+        st.download_button(
+            label="📥 Descargar Audio Convertido",
+            data=res["buffer"],
+            file_name=res["nombre"],
+            mime="audio/mpeg"
+        )
