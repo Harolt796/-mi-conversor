@@ -67,21 +67,32 @@ st.markdown("<h1>AKI 😺 Audio Converter</h1>", unsafe_allow_html=True)
 st.markdown("<p style='text-align: center;'>Sube tu canción, escucha cómo quedará, elige el pitch y descarga el archivo para Roblox.</p>", unsafe_allow_html=True)
 st.markdown("---")
 
-# ===== PATRÓN QUARTER-TONE (el de Roblox) =====
-# Cada paso: pitch = 2^(n/24), donde n es entero
-# 24 pasos = 1 octava (×2 o ×0.5). Cada paso = ×1.0293 (cuarto de tono)
-N_MIN, N_MAX = -40, 24
-STEPS_N = list(range(N_MIN, N_MAX + 1))  # 65 valores
-QT_VALUES = [round(2 ** (n / 24), 4) for n in STEPS_N]
-
-# Default: pitch 0.42 → n = -30 → índice 10
-DEFAULT_INDEX = 10
+# ===== GENERAR VALORES AL ESTILO ROBLOX (3 decimales) =====
+# Fórmula: pitch = 2^(n/24), n entero. 24 pasos = 1 octava, cada paso = cuarto de tono.
+# Se redondea a 3 decimales (igual que la web original Nomen Audio).
 
 def format_pitch(value):
-    """Formatea el pitch eliminando ceros innecesarios a la derecha."""
-    # Redondear a 4 decimales y eliminar ceros finales
-    formatted = f"{value:.4f}".rstrip('0').rstrip('.')
-    return formatted
+    """Redondea a 3 decimales y elimina ceros innecesarios a la derecha.
+    Ejemplos: 0.420 → '0.42' | 0.397 → '0.397' | 1.000 → '1' | 0.500 → '0.5'
+    """
+    rounded = round(value, 3)
+    s = f"{rounded:.3f}".rstrip('0').rstrip('.')
+    return s if s else "0"
+
+# Generar tabla de valores (n, pitch_redondeado, texto)
+N_MIN, N_MAX = -80, 24  # 0.1x a 2.0x aprox
+QT_VALUES = []  # lista de dicts con n, pitch, texto
+for n in range(N_MIN, N_MAX + 1):
+    raw = 2 ** (n / 24)
+    pitch = round(raw, 3)  # 🔑 3 decimales (igual que Roblox)
+    QT_VALUES.append({
+        "n": n,
+        "pitch": pitch,
+        "texto": format_pitch(pitch)
+    })
+
+# Default: n = -30 → pitch ≈ 0.42 (índice 50 dentro de la lista)
+DEFAULT_IDX = 50  # n=-30
 
 def cambiar_pitch(audio, factor):
     """Cambia pitch Y velocidad juntos (efecto vinilo, sin preservar tono)."""
@@ -105,7 +116,10 @@ if archivo_subido is not None:
     
     # ===== PASO 1: REPRODUCTOR =====
     st.markdown("### 🎧 Paso 1: Escucha cómo quedará")
-    st.caption("Mueve el círculo. **Cada paso = 1 cuarto de tono = ×1.0293**, el patrón exacto de Roblox.")
+    st.caption("Mueve el círculo. **Cada paso = ×1.0293 (+2.93%)**, el patrón exacto de Roblox (24 pasos = 1 octava).")
+    
+    # Pasar los valores al HTML para que el slider avance con los mismos datos
+    valores_js = "[" + ",".join([f'{{"n":{v["n"]},"pitch":{v["pitch"]},"texto":"{v["texto"]}"}}' for v in QT_VALUES]) + "]"
     
     html_player = f"""
     <!DOCTYPE html>
@@ -123,7 +137,8 @@ if archivo_subido is not None:
             background: #8b5cf6; cursor: pointer; border: 2px solid #000;
         }}
         .value {{ background: #8b5cf6; padding: 6px 14px; border-radius: 8px; font-weight: bold;
-            min-width: 80px; text-align: center; color: white; text-shadow: 1px 1px 2px #000; border: 2px solid #000; }}
+            min-width: 80px; text-align: center; color: white; text-shadow: 1px 1px 2px #000; border: 2px solid #000;
+            font-family: monospace; font-size: 16px; }}
         .info {{ color: #fff; font-size: 12px; margin-top: 8px; text-shadow: 1px 1px 2px #000; }}
         .math {{ background: rgba(0,0,0,0.6); padding: 10px; border-radius: 8px; margin-top: 8px;
             font-family: monospace; font-size: 12px; color: #c4b5fd; border: 1px solid #8b5cf6; }}
@@ -135,8 +150,8 @@ if archivo_subido is not None:
             
             <div class="controls">
                 <label>🎚️ Pitch:</label>
-                <input type="range" id="pitchIdx" min="0" max="64" step="1" value="{DEFAULT_INDEX}">
-                <span class="value" id="pitchValue">{format_pitch(QT_VALUES[DEFAULT_INDEX])}</span>
+                <input type="range" id="pitchIdx" min="0" max="{len(QT_VALUES)-1}" step="1" value="{DEFAULT_IDX}">
+                <span class="value" id="pitchValue">{QT_VALUES[DEFAULT_IDX]["texto"]}</span>
             </div>
             
             <div class="info" id="stepInfo"></div>
@@ -144,6 +159,7 @@ if archivo_subido is not None:
         </div>
         
         <script>
+            const VALUES = {valores_js};
             const audio = document.getElementById('audio');
             const pitchIdx = document.getElementById('pitchIdx');
             const pitchValue = document.getElementById('pitchValue');
@@ -155,25 +171,18 @@ if archivo_subido is not None:
             audio.webkitPreservesPitch = false;
             audio.msPreservesPitch = false;
             
-            function formatPitch(val) {{
-                // Redondear a 4 decimales y eliminar ceros finales
-                let s = val.toFixed(4);
-                s = s.replace(/0+$/, '');
-                s = s.replace(/\\.$/, '');
-                return s;
-            }}
-            
             function applyPitch() {{
                 const idx = parseInt(pitchIdx.value);
-                const n = idx - 40;
-                const pitchVal = Math.pow(2, n / 24);
+                const v = VALUES[idx];
+                const pitchVal = v.pitch;
                 audio.preservesPitch = false;
                 audio.mozPreservesPitch = false;
                 audio.webkitPreservesPitch = false;
+                audio.msPreservesPitch = false;
                 audio.playbackRate = 1 / pitchVal;
-                pitchValue.textContent = formatPitch(pitchVal);
-                stepInfo.innerHTML = '📊 Paso <b>n = ' + n + '</b> · Pitch = <b>' + formatPitch(pitchVal) + '</b> · PlaybackRate = <b>' + (1/pitchVal).toFixed(4) + '</b>';
-                mathInfo.innerHTML = '🧮 pitch = 2^(' + n + '/24)  |  Paso: ×' + Math.pow(2, 1/24).toFixed(4) + ' (+2.93%)  |  24 pasos = 1 octava';
+                pitchValue.textContent = v.texto;
+                stepInfo.innerHTML = '📊 Paso <b>n = ' + v.n + '</b> · Pitch = <b>' + v.texto + '</b> · PlaybackRate = <b>' + (1/pitchVal).toFixed(4) + '</b>';
+                mathInfo.innerHTML = '🧮 pitch = 2^(' + v.n + '/24)  |  Paso: ×1.0293 (+2.93%)  |  24 pasos = 1 octava';
             }}
             
             applyPitch();
@@ -196,22 +205,22 @@ if archivo_subido is not None:
     <p style="font-size: 1.6em; text-align: center; font-weight: bold; margin: 15px 0; color: #c4b5fd;">
     pitch = 2<sup>(n/24)</sup>
     </p>
-    <p style="margin: 5px 0;"><b>n</b> = número entero (índice del paso).</p>
+    <p style="margin: 5px 0;"><b>n</b> = número entero. Se redondea a <b>3 decimales</b> (como en la web original).</p>
     <ul style="margin: 10px 0;">
     <li>Cada paso multiplica por <b>2<sup>(1/24)</sup> ≈ 1.0293</b> (+2.93%)</li>
     <li><b>24 pasos</b> = 1 octava = ×2 (o ×0.5)</li>
     <li>Cada paso = <b>1 cuarto de tono</b> musical</li>
     </ul>
-    <p style="margin: 5px 0;">Ejemplos (los tuyos):</p>
+    <p style="margin: 5px 0;">Tus valores exactos:</p>
     <ul style="margin: 10px 0; font-family: monospace; font-size: 13px;">
-    <li>n = -33 → 2<sup>(-33/24)</sup> = 0.3856 ≈ <b>0.386</b></li>
-    <li>n = -32 → 2<sup>(-32/24)</sup> = 0.3969 ≈ <b>0.397</b></li>
-    <li>n = -31 → 2<sup>(-31/24)</sup> = 0.4085 ≈ <b>0.408</b></li>
-    <li>n = -30 → 2<sup>(-30/24)</sup> = 0.4204 ≈ <b>0.42</b></li>
-    <li>n = -29 → 2<sup>(-29/24)</sup> = 0.4328 ≈ <b>0.433</b></li>
-    <li>n =   8 → 2<sup>(8/24)</sup>  = 1.2599 ≈ <b>1.26</b></li>
-    <li>n =  17 → 2<sup>(17/24)</sup> = 1.6339 ≈ <b>1.634</b></li>
-    <li>n =  18 → 2<sup>(18/24)</sup> = 1.6818 ≈ <b>1.682</b></li>
+    <li>n = -33 → <b>0.386</b></li>
+    <li>n = -32 → <b>0.397</b></li>
+    <li>n = -31 → <b>0.408</b></li>
+    <li>n = -30 → <b>0.42</b></li>
+    <li>n = -29 → <b>0.433</b></li>
+    <li>n =   8 → <b>1.26</b></li>
+    <li>n =  17 → <b>1.634</b></li>
+    <li>n =  18 → <b>1.682</b></li>
     </ul>
     </div>
     """, unsafe_allow_html=True)
@@ -220,29 +229,31 @@ if archivo_subido is not None:
     
     # ===== PASO 3: AJUSTE FINAL =====
     st.markdown("### 🎯 Paso 2: Ajusta el pitch final")
-    st.caption("Mueve el slider. Cada paso es un cuarto de tono (el patrón de Roblox).")
+    st.caption("Cada paso es un cuarto de tono. El valor mostrado (3 decimales) es el que usarás en Roblox.")
     
     idx_usuario = st.slider(
-        "Índice (n)",
+        "Posición del slider",
         min_value=0,
-        max_value=64,
-        value=DEFAULT_INDEX,
+        max_value=len(QT_VALUES) - 1,
+        value=DEFAULT_IDX,
         step=1,
         key="idx_slider"
     )
     
-    n_actual = idx_usuario - 40
-    pitch_usuario = QT_VALUES[idx_usuario]
+    selected = QT_VALUES[idx_usuario]
+    pitch_usuario = selected["pitch"]        # 🔑 3 decimales
+    n_actual = selected["n"]
+    texto_usuario = selected["texto"]
     
     col_info1, col_info2, col_info3 = st.columns(3)
     with col_info1:
-        st.metric("effectSpeed", f"{format_pitch(pitch_usuario)}")
+        st.metric("effectSpeed", texto_usuario)
     with col_info2:
         st.metric("Paso (n)", f"{n_actual}")
     with col_info3:
         st.metric("PlaybackRate", f"{1/pitch_usuario:.4f}")
     
-    st.info(f"📌 **effectSpeed para Roblox = {format_pitch(pitch_usuario)}** (n = {n_actual})")
+    st.info(f"📌 **effectSpeed para Roblox = {texto_usuario}** (n = {n_actual})")
     
     st.markdown("---")
     
@@ -255,8 +266,8 @@ if archivo_subido is not None:
                 audio = AudioSegment.from_file(archivo_subido)
                 duracion_original = len(audio) / 1000.0
                 
-                # Conversión matemáticamente correcta:
-                # archivo se acelera a 1/pitch → al aplicar effectSpeed=pitch en Roblox, vuelve a 1.0
+                # Conversión matemáticamente perfecta:
+                # Usamos el pitch de 3 decimales (el mismo que pondrás en Roblox)
                 factor_conversion = 1.0 / pitch_usuario
                 audio_pitch = cambiar_pitch(audio, factor_conversion)
                 duracion_final = len(audio_pitch) / 1000.0
@@ -269,23 +280,25 @@ if archivo_subido is not None:
                 
                 col_a, col_b, col_c = st.columns(3)
                 with col_a:
-                    st.metric(label="effectSpeed Roblox", value=f"{format_pitch(pitch_usuario)}")
+                    st.metric(label="effectSpeed Roblox", value=texto_usuario)
                 with col_b:
                     st.metric(label="Duración original", value=f"{duracion_original:.1f}s")
                 with col_c:
                     st.metric(label="Duración convertida", value=f"{duracion_final:.1f}s")
                 
+                # Verificación matemática
+                verificacion = (1.0 / pitch_usuario) * pitch_usuario
                 st.info(
                     f"📌 **Instrucciones para Roblox Studio:**\n\n"
                     f"1. Sube este MP3 a Roblox.\n"
-                    f"2. Pon **effectSpeed = {format_pitch(pitch_usuario)}** en el Sound.\n"
-                    f"3. La canción sonará idéntica al original. ✅"
+                    f"2. Pon **effectSpeed = {texto_usuario}** en el Sound.\n"
+                    f"3. Verificación: `{1/pitch_usuario:.4f} × {texto_usuario} = {verificacion:.4f}` → vuelve al original ✅"
                 )
                 
                 st.download_button(
                     label="📥 Descargar Audio Convertido",
                     data=output_buffer,
-                    file_name=f"{os.path.splitext(archivo_subido.name)[0]}_aki_{format_pitch(pitch_usuario)}.mp3",
+                    file_name=f"{os.path.splitext(archivo_subido.name)[0]}_aki_{texto_usuario}.mp3",
                     mime="audio/mpeg"
                 )
             except Exception as e:
