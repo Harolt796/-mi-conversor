@@ -3,6 +3,7 @@ import streamlit.components.v1 as components
 import os
 from pydub import AudioSegment
 import base64
+import time
 
 # ===== CONFIGURACIÓN =====
 st.set_page_config(
@@ -15,15 +16,12 @@ st.set_page_config(
 # ===== ESTILOS =====
 st.markdown("""
     <style>
-    /* Fondo degradado */
     .stApp {
         background: radial-gradient(circle at center, 
             #ffffff 0%, #f0f0f0 8%, #d0d0d0 20%, #909090 40%, 
             #505050 60%, #282828 80%, #0a0a0a 100%);
         background-attachment: fixed;
     }
-    
-    /* Textos blancos con borde negro */
     h1, h2, h3, h4, p, label, .stMarkdown, .stCaption, span, div, li {
         color: #ffffff !important;
         text-shadow: -1px -1px 0 #000, 1px -1px 0 #000,
@@ -31,75 +29,17 @@ st.markdown("""
             0px 0px 6px rgba(0,0,0,0.9) !important;
     }
     h1 { font-family: 'Arial Black', sans-serif; text-align: center; font-size: 2.5em !important; }
-    
     .stFileUploader {
         background-color: rgba(26, 26, 26, 0.92);
         border: 2px dashed #8b5cf6;
         border-radius: 15px; padding: 20px;
         backdrop-filter: blur(5px);
     }
-    
-    /* 🔑 ELIMINAR TODOS LOS GAPS de Streamlit */
-    [data-testid="stVerticalBlock"],
-    [data-testid="stVerticalBlockBorderWrapper"],
-    [data-testid="stVerticalBlock"] > div,
-    [data-testid="stElementContainer"] {
-        gap: 0 !important;
-        margin: 0 !important;
-        padding: 0 !important;
-    }
-    
-    /* 🔑 Iframe pegado, sin márgenes */
-    [data-testid="stCustomComponentV1"] {
-        margin: 0 !important;
-        padding: 0 !important;
-        margin-bottom: -18px !important;
-        line-height: 0 !important;
-    }
-    iframe {
-        display: block !important;
-        margin: 0 !important;
-        padding: 0 !important;
-        border-bottom: none !important;
-        border-radius: 15px 15px 0 0 !important;
-    }
-    
-    /* 🔑 Botón fusionado con el iframe */
-    [data-testid="stButton"] {
-        margin: 0 !important;
-        padding: 0 !important;
-    }
-    [data-testid="stButton"] > button {
-        background: linear-gradient(135deg, #7c3aed 0%, #8b5cf6 100%) !important;
-        color: white !important;
-        border-radius: 0 0 15px 15px !important;
-        border: 2px solid #8b5cf6 !important;
-        border-top: none !important;
-        padding: 16px 24px !important;
-        font-weight: bold !important;
-        width: 100% !important;
-        text-shadow: 1px 1px 2px #000 !important;
-        font-size: 18px !important;
-        box-shadow: 0 8px 15px rgba(139, 92, 246, 0.4) !important;
-        margin: 0 !important;
-        height: auto !important;
-        min-height: auto !important;
-    }
-    [data-testid="stButton"] > button:hover {
-        background: linear-gradient(135deg, #6d28d9 0%, #7c3aed 100%) !important;
-        box-shadow: 0 8px 25px rgba(139, 92, 246, 0.8) !important;
-    }
-    
-    /* Quitar el margen del texto entre uploader y player */
-    .stMarkdown { margin: 0 !important; padding: 0 !important; }
-    
     audio { width: 100%; border-radius: 10px; }
     .stAlert {
         background-color: rgba(26, 26, 26, 0.92);
         border-radius: 10px; border: 2px solid #8b5cf6;
     }
-    
-    /* Alertas */
     .alerta-roja {
         background: linear-gradient(135deg, #7f1d1d 0%, #991b1b 50%, #dc2626 100%);
         border: 3px solid #ff0000;
@@ -164,41 +104,58 @@ def format_duracion(seg):
     s = int(seg % 60)
     return f"{m}:{s:02d}"
 
-# ===== LEER PITCH DEL URL =====
+# ===== INICIALIZAR SESSION STATE =====
+if "audio_data" not in st.session_state:
+    st.session_state.audio_data = None
+    st.session_state.audio_name = None
+    st.session_state.duracion_original = None
+    st.session_state.pitch_seleccionado = QT_VALUES[DEFAULT_IDX]["pitch"]
+    st.session_state.last_convert_trigger = None
+    st.session_state.resultado = None
+
+# ===== LEER PARÁMETROS DE URL =====
 pitch_url_str = st.query_params.get("aki_pitch", None)
 if pitch_url_str is not None:
     try:
-        pitch_seleccionado = float(pitch_url_str)
+        st.session_state.pitch_seleccionado = float(pitch_url_str)
     except:
-        pitch_seleccionado = QT_VALUES[DEFAULT_IDX]["pitch"]
-else:
-    pitch_seleccionado = QT_VALUES[DEFAULT_IDX]["pitch"]
+        pass
 
-texto_seleccionado = format_pitch(pitch_seleccionado)
+convert_trigger = st.query_params.get("aki_convert", None)
 
 # ===== SUBIR ARCHIVO =====
 archivo_subido = st.file_uploader("🎵 Arrastra tu canción aquí", type=["mp3", "wav", "ogg", "flac"])
 
 if archivo_subido is not None:
-    temp_path = f"/tmp/{archivo_subido.name}"
-    with open(temp_path, "wb") as f:
-        f.write(archivo_subido.getbuffer())
+    # Solo procesar si es un archivo nuevo
+    if st.session_state.audio_name != archivo_subido.name:
+        st.session_state.audio_data = archivo_subido.getvalue()
+        st.session_state.audio_name = archivo_subido.name
+        
+        temp_path = f"/tmp/{archivo_subido.name}"
+        with open(temp_path, "wb") as f:
+            f.write(archivo_subido.getbuffer())
+        audio_temporal = AudioSegment.from_file(temp_path)
+        st.session_state.duracion_original = len(audio_temporal) / 1000.0
+        st.session_state.resultado = None  # Reset
+
+# ===== MOSTRAR REPRODUCTOR SI HAY AUDIO =====
+if st.session_state.audio_data is not None:
+    audio_b64 = base64.b64encode(st.session_state.audio_data).decode()
+    duracion_original = st.session_state.duracion_original
+    pitch_seleccionado = st.session_state.pitch_seleccionado
+    texto_seleccionado = format_pitch(pitch_seleccionado)
     
-    audio_bytes = open(temp_path, "rb").read()
-    audio_b64 = base64.b64encode(audio_bytes).decode()
-    
-    audio_temporal = AudioSegment.from_file(temp_path)
-    duracion_original = len(audio_temporal) / 1000.0
-    
+    # Encontrar índice inicial
     idx_inicial = DEFAULT_IDX
     for i, v in enumerate(QT_VALUES):
         if abs(v["pitch"] - pitch_seleccionado) < 0.0005:
             idx_inicial = i
             break
     
-    # ===== REPRODUCTOR HTML =====
     valores_js = "[" + ",".join([f'{{"n":{v["n"]},"pitch":{v["pitch"]},"texto":"{v["texto"]}"}}' for v in QT_VALUES]) + "]"
     
+    # ===== REPRODUCTOR + BOTÓN EN UN SOLO IFRAME =====
     html_player = f"""
     <!DOCTYPE html>
     <html>
@@ -211,13 +168,15 @@ if archivo_subido is not None:
             padding: 0;
             overflow: hidden;
         }}
-        .player {{
+        .block {{
             background: rgba(26, 26, 26, 0.95);
-            border-radius: 15px 15px 0 0;
+            border-radius: 15px;
             border: 2px solid #8b5cf6;
-            border-bottom: none;
+            overflow: hidden;
+            box-shadow: 0 8px 25px rgba(139, 92, 246, 0.4);
+        }}
+        .player-content {{
             padding: 18px 18px 14px 18px;
-            box-sizing: border-box;
         }}
         audio {{ width: 100%; margin-bottom: 12px; }}
         .row {{ display: flex; align-items: center; gap: 15px; margin-bottom: 10px; }}
@@ -233,11 +192,41 @@ if archivo_subido is not None:
         .info {{ color: #fff; font-size: 13px; margin-top: 8px; text-shadow: 1px 1px 2px #000; padding: 10px;
             background: rgba(0,0,0,0.5); border-radius: 8px; border-left: 4px solid #8b5cf6; }}
         .alerta {{ background: linear-gradient(135deg, #7f1d1d 0%, #991b1b 50%, #dc2626 100%);
-            border: 3px solid #ff0000; border-radius: 12px; padding: 12px; margin-top: 8px;
+            border: 2px solid #ff0000; border-radius: 12px; padding: 12px; margin-top: 8px;
             color: white; text-shadow: 1px 1px 3px #000; animation: pulso 2s infinite; font-size: 13px; }}
         .ok {{ background: linear-gradient(135deg, #064e3b 0%, #10b981 100%);
-            border: 3px solid #10b981; border-radius: 12px; padding: 10px; margin-top: 8px;
+            border: 2px solid #10b981; border-radius: 12px; padding: 10px; margin-top: 8px;
             color: white; text-shadow: 1px 1px 3px #000; font-size: 13px; }}
+        
+        /* 🔑 BOTÓN DENTRO DEL MISMO BLOQUE */
+        .convert-btn {{
+            display: block;
+            width: 100%;
+            background: linear-gradient(135deg, #7c3aed 0%, #8b5cf6 100%);
+            color: white;
+            border: none;
+            border-top: 2px solid #6d28d9;
+            padding: 16px 24px;
+            font-weight: bold;
+            font-size: 18px;
+            font-family: Arial, sans-serif;
+            text-shadow: 1px 1px 2px #000;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            box-sizing: border-box;
+        }}
+        .convert-btn:hover {{
+            background: linear-gradient(135deg, #6d28d9 0%, #7c3aed 100%);
+            box-shadow: inset 0 0 20px rgba(255,255,255,0.1);
+        }}
+        .convert-btn:active {{
+            transform: scale(0.98);
+        }}
+        .convert-btn.loading {{
+            background: linear-gradient(135deg, #4c1d95 0%, #5b21b6 100%);
+            cursor: wait;
+            opacity: 0.8;
+        }}
         @keyframes pulso {{
             0%, 100% {{ box-shadow: 0 0 20px rgba(255, 0, 0, 0.6); }}
             50% {{ box-shadow: 0 0 40px rgba(255, 0, 0, 1); }}
@@ -245,23 +234,27 @@ if archivo_subido is not None:
     </style>
     </head>
     <body>
-        <div class="player">
-            <audio id="audio" controls src="data:audio/mp3;base64,{audio_b64}"></audio>
-            
-            <div class="row">
-                <label>🎚️ Pitch:</label>
-                <input type="range" id="pitchIdx" min="0" max="{len(QT_VALUES)-1}" step="1" value="{idx_inicial}">
-                <span class="value" id="pitchValue">{QT_VALUES[idx_inicial]["texto"]}</span>
+        <div class="block">
+            <div class="player-content">
+                <audio id="audio" controls src="data:audio/mp3;base64,{audio_b64}"></audio>
+                
+                <div class="row">
+                    <label>🎚️ Pitch:</label>
+                    <input type="range" id="pitchIdx" min="0" max="{len(QT_VALUES)-1}" step="1" value="{idx_inicial}">
+                    <span class="value" id="pitchValue">{QT_VALUES[idx_inicial]["texto"]}</span>
+                </div>
+                
+                <div class="row">
+                    <label>🔊 Volumen:</label>
+                    <input type="range" id="volumeSlider" min="0" max="1" step="0.01" value="1">
+                    <span class="value" id="volumeValue">100%</span>
+                </div>
+                
+                <div class="info" id="infoDuracion"></div>
+                <div id="alertaBox"></div>
             </div>
             
-            <div class="row">
-                <label>🔊 Volumen:</label>
-                <input type="range" id="volumeSlider" min="0" max="1" step="0.01" value="1">
-                <span class="value" id="volumeValue">100%</span>
-            </div>
-            
-            <div class="info" id="infoDuracion"></div>
-            <div id="alertaBox"></div>
+            <button class="convert-btn" id="convertBtn" onclick="convertir()">🔄 Convertir audio</button>
         </div>
         
         <script>
@@ -275,6 +268,7 @@ if archivo_subido is not None:
             const volumeValue = document.getElementById('volumeValue');
             const infoDuracion = document.getElementById('infoDuracion');
             const alertaBox = document.getElementById('alertaBox');
+            const convertBtn = document.getElementById('convertBtn');
             
             audio.preservesPitch = false;
             audio.mozPreservesPitch = false;
@@ -323,6 +317,23 @@ if archivo_subido is not None:
                 volumeValue.textContent = Math.round(this.value * 100) + '%';
             }});
             
+            // 🔑 FUNCIÓN DE CONVERSIÓN: recarga el padre con el trigger
+            function convertir() {{
+                convertBtn.classList.add('loading');
+                convertBtn.textContent = '⏳ Convirtiendo...';
+                
+                try {{
+                    const url = new URL(window.parent.location.href);
+                    url.searchParams.set('aki_pitch', VALUES[parseInt(pitchIdx.value)].pitch.toFixed(3));
+                    url.searchParams.set('aki_convert', Date.now().toString());
+                    window.parent.location.href = url.toString();
+                }} catch(e) {{
+                    alert('Error al convertir: ' + e);
+                    convertBtn.classList.remove('loading');
+                    convertBtn.textContent = '🔄 Convertir audio';
+                }}
+            }}
+            
             applyPitch();
             pitchIdx.addEventListener('input', applyPitch);
         </script>
@@ -330,30 +341,34 @@ if archivo_subido is not None:
     </html>
     """
     
-    components.html(html_player, height=390)
+    components.html(html_player, height=480)
     
-    # ===== BOTÓN DE CONVERTIR =====
-    if st.button("🔄 Convertir audio", key="convertir_btn"):
+    # ===== PROCESAR CONVERSIÓN SI SE ACTIVÓ =====
+    if convert_trigger and convert_trigger != st.session_state.last_convert_trigger:
+        st.session_state.last_convert_trigger = convert_trigger
+        
         with st.spinner("Procesando audio completo..."):
             try:
-                audio = AudioSegment.from_file(archivo_subido)
+                temp_path = f"/tmp/{st.session_state.audio_name}"
+                audio = AudioSegment.from_file(temp_path)
+                
                 factor_conversion = 1.0 / pitch_seleccionado
                 audio_pitch = cambiar_pitch(audio, factor_conversion)
                 duracion_final = len(audio_pitch) / 1000.0
                 output_buffer = audio_pitch.export(format="mp3", bitrate="192k")
                 
-                st.session_state["ultimo_resultado"] = {
+                st.session_state.resultado = {
                     "buffer": output_buffer.getvalue() if hasattr(output_buffer, 'getvalue') else output_buffer,
                     "duracion_final": duracion_final,
                     "texto_pitch": texto_seleccionado,
-                    "nombre": f"{os.path.splitext(archivo_subido.name)[0]}_aki_{texto_seleccionado}.mp3"
+                    "nombre": f"{os.path.splitext(st.session_state.audio_name)[0]}_aki_{texto_seleccionado}.mp3"
                 }
             except Exception as e:
                 st.error(f"Error al procesar: {e}")
     
-    # ===== RESULTADO =====
-    if "ultimo_resultado" in st.session_state:
-        res = st.session_state["ultimo_resultado"]
+    # ===== MOSTRAR RESULTADO =====
+    if st.session_state.resultado is not None:
+        res = st.session_state.resultado
         
         st.success(f"¡Conversión exitosa! 🎉 Duración final: {format_duracion(res['duracion_final'])}")
         
