@@ -1,7 +1,8 @@
 import streamlit as st
 import streamlit.components.v1 as components
 import os
-from pydub import AudioSegment
+import io
+import mutagen
 import base64
 
 st.set_page_config(
@@ -12,9 +13,38 @@ st.set_page_config(
 )
 
 # ----------------------------------------------------------------------------
+# LOGO EN BASE64 (para usarlo como marca de agua de fondo, sin servir archivos
+# estáticos aparte)
+# ----------------------------------------------------------------------------
+_logo_b64 = None
+try:
+    with open("logo.png", "rb") as _f:
+        _logo_b64 = base64.b64encode(_f.read()).decode()
+except Exception:
+    _logo_b64 = None
+
+_logo_bg_css = ""
+if _logo_b64:
+    _logo_bg_css = f"""
+.stApp::before {{
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    background-image: url('data:image/png;base64,{_logo_b64}');
+    background-repeat: no-repeat;
+    background-position: center 10%;
+    background-size: 700px;
+    opacity: 0.05;
+    filter: blur(1px) grayscale(0.3);
+}}
+"""
+
+# ----------------------------------------------------------------------------
 # ESTILOS GLOBALES DE LA PÁGINA (fuera del iframe)
 # ----------------------------------------------------------------------------
-st.markdown("""
+CSS_TEMPLATE = """
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
 
@@ -28,25 +58,45 @@ footer, #MainMenu {
 }
 
 .stApp {
-    background: radial-gradient(circle at 50% 0%, #17141f 0%, #0a090d 55%, #060506 100%);
+    background: #07060a;
+    position: relative;
+    overflow-x: hidden;
 }
+
+.stApp::after {
+    content: "";
+    position: fixed;
+    inset: -10%;
+    z-index: 0;
+    pointer-events: none;
+    background:
+        radial-gradient(38% 32% at 18% 8%, rgba(139,92,246,0.16), transparent 60%),
+        radial-gradient(34% 30% at 88% 14%, rgba(78,205,255,0.10), transparent 60%),
+        radial-gradient(45% 38% at 50% 100%, rgba(124,77,255,0.12), transparent 65%),
+        radial-gradient(circle at 50% 0%, #17141f 0%, #0a090d 55%, #060506 100%);
+}
+
+__LOGO_BG_CSS__
 
 .block-container {
     padding-top: 2.2rem;
     max-width: 640px;
+    position: relative;
+    z-index: 1;
 }
 
 [data-testid="stFileUploader"] {
     border: 1.5px dashed rgba(168, 130, 255, 0.35);
     border-radius: 18px;
-    background: linear-gradient(160deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01));
+    background: linear-gradient(160deg, rgba(255,255,255,0.035), rgba(255,255,255,0.01));
+    backdrop-filter: blur(6px);
     padding: 1.2rem 1rem;
     transition: border-color .2s ease, background .2s ease;
 }
 
 [data-testid="stFileUploader"]:hover {
     border-color: rgba(168, 130, 255, 0.7);
-    background: linear-gradient(160deg, rgba(168,130,255,0.06), rgba(255,255,255,0.01));
+    background: linear-gradient(160deg, rgba(168,130,255,0.07), rgba(255,255,255,0.01));
 }
 
 [data-testid="stFileUploader"] section {
@@ -66,24 +116,44 @@ footer, #MainMenu {
     border-radius: 10px !important;
     font-weight: 600 !important;
 }
+
+iframe {
+    position: relative;
+    z-index: 1;
+}
 </style>
-""", unsafe_allow_html=True)
+"""
+
+st.markdown(CSS_TEMPLATE.replace("__LOGO_BG_CSS__", _logo_bg_css), unsafe_allow_html=True)
 
 # ----------------------------------------------------------------------------
 # ENCABEZADO / LOGO
 # ----------------------------------------------------------------------------
-col1, col2, col3 = st.columns([1, 2, 1])
-with col2:
-    try:
-        st.image("logo.png", width=92)
-    except Exception:
-        st.markdown(
-            "<div style='text-align:center; font-size:64px; margin-bottom:-10px;'>😺</div>",
-            unsafe_allow_html=True
-        )
+if _logo_b64:
+    st.markdown(
+        f"""
+        <div style="display:flex; justify-content:center; margin-bottom:-14px;">
+            <div style="position:relative; width:110px; height:110px; display:flex;
+                        align-items:center; justify-content:center;">
+                <div style="position:absolute; inset:-14px; border-radius:50%;
+                            background: radial-gradient(circle, rgba(139,92,246,0.35), transparent 70%);
+                            filter: blur(6px);"></div>
+                <img src="data:image/png;base64,{_logo_b64}" width="92"
+                     style="position:relative; border-radius:20px;
+                            box-shadow: 0 6px 22px rgba(139,92,246,0.35);" />
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+else:
+    st.markdown(
+        "<div style='text-align:center; font-size:64px; margin-bottom:-10px;'>😺</div>",
+        unsafe_allow_html=True
+    )
 
 st.markdown("""
-<div style="text-align:center; margin-top:-6px; margin-bottom:1.6rem;">
+<div style="text-align:center; margin-top:2px; margin-bottom:1.6rem;">
     <div style="font-family:'JetBrains Mono', monospace; font-weight:700; font-size:1.9rem;
                 letter-spacing:2px; background: linear-gradient(135deg, #c9b6ff, #8b5cf6 60%, #5b34d6);
                 -webkit-background-clip:text; -webkit-text-fill-color:transparent;">
@@ -143,12 +213,11 @@ if archivo_subido is not None:
     if st.session_state.audio_name != archivo_subido.name:
         st.session_state.audio_data = archivo_subido.getvalue()
         st.session_state.audio_name = archivo_subido.name
-        tmp_path = f"/tmp/{archivo_subido.name}"
-        with open(tmp_path, "wb") as f:
-            f.write(st.session_state.audio_data)
+        # Lectura de metadatos únicamente (sin decodificar el audio ni usar ffmpeg)
+        # esto hace que el menú aparezca casi al instante tras subir el archivo.
         try:
-            audio_tmp = AudioSegment.from_file(tmp_path)
-            st.session_state.duracion_original = len(audio_tmp) / 1000.0
+            info = mutagen.File(io.BytesIO(st.session_state.audio_data))
+            st.session_state.duracion_original = info.info.length if info else 0
         except Exception:
             st.session_state.duracion_original = 0
 
@@ -170,7 +239,6 @@ if st.session_state.audio_data is not None:
 <head>
 <meta charset="utf-8">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
-<script src="https://cdn.jsdelivr.net/npm/lamejs@1.2.1/lame.min.js"></script>
 <style>
   * { box-sizing: border-box; }
   body {
@@ -190,11 +258,25 @@ if st.session_state.audio_data is not None:
   }
   .container { padding: 4px 2px 14px 2px; }
   .card {
+      position: relative;
       background: linear-gradient(160deg, #16141d 0%, #0e0c12 100%);
       border: 1px solid var(--line);
       border-radius: 20px;
-      padding: 22px 22px 20px 22px;
-      box-shadow: 0 10px 34px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.03);
+      padding: 26px 24px 22px 24px;
+      box-shadow: 0 14px 40px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.04);
+      overflow: hidden;
+  }
+  .card::before {
+      content: "";
+      position: absolute; top: 0; left: 24px; right: 24px; height: 2px;
+      background: linear-gradient(90deg, transparent, var(--accent-strong), transparent);
+      opacity: 0.8;
+  }
+  .card::after {
+      content: "";
+      position: absolute; top: -60%; right: -30%; width: 60%; height: 160%;
+      background: radial-gradient(circle, rgba(139,92,246,0.10), transparent 65%);
+      pointer-events: none;
   }
   .track-header {
       display: flex; align-items: center; justify-content: space-between;
@@ -387,11 +469,13 @@ if st.session_state.audio_data is not None:
 
     <button class="convert-btn" id="convertBtn" onclick="convertir()">CONVERTIR Y DESCARGAR</button>
 
+    <div id="resultSection" class="result-section"></div>
+
     <audio id="audioHidden" src="data:audio/mp3;base64,__AUDIO_B64__"></audio>
   </div>
-  <div id="resultSection" class="result-section"></div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/lamejs@1.2.1/lame.min.js" defer></script>
 <script>
 const VALUES = __VALORES_JS__;
 const DURACION_ORIGINAL = __DURACION_ORIGINAL__;
@@ -404,6 +488,7 @@ let mode = "auto";
 let decodedBuffer = null;
 let manualPreviewUrl = null;
 let manualPreviewDirty = true;
+let manualDebounceTimer = null;
 
 const audioHidden = document.getElementById("audioHidden");
 audioHidden.preservesPitch = false;
@@ -494,6 +579,8 @@ function applyManualInfo() {
 
 function toggleMode() {
     if (!audioHidden.paused) audioHidden.pause();
+    audioHidden.loop = false;
+    clearTimeout(manualDebounceTimer);
     mode = (mode === "auto") ? "manual" : "auto";
 
     const btn = document.getElementById("modeBtn");
@@ -518,9 +605,12 @@ function togglePreview() {
     const btn = document.getElementById("previewBtn");
     if (!audioHidden.paused) {
         audioHidden.pause();
+        audioHidden.loop = false;
+        clearTimeout(manualDebounceTimer);
         return;
     }
     if (mode === "auto") {
+        audioHidden.loop = false;
         audioHidden.src = ORIGINAL_AUDIO_SRC;
         applyPitch();
         audioHidden.currentTime = 0;
@@ -636,27 +726,31 @@ function encodeMP3(audioBuffer, kbps) {
     return new Blob(mp3Data, { type: "audio/mp3" });
 }
 
-async function previewManual() {
+const MANUAL_PREVIEW_SECONDS = 10;
+
+async function previewManual(isRefresh) {
     const btn = document.getElementById("previewBtn");
     if (!decodedBuffer) return;
 
-    if (manualPreviewUrl && !manualPreviewDirty) {
-        audioHidden.src = manualPreviewUrl;
-        audioHidden.playbackRate = 1;
-        audioHidden.preservesPitch = true;
-        audioHidden.currentTime = 0;
-        audioHidden.play();
-        btn.textContent = "⏸ PAUSA";
-        return;
+    if (!isRefresh) {
+        if (manualPreviewUrl && !manualPreviewDirty) {
+            audioHidden.src = manualPreviewUrl;
+            audioHidden.loop = true;
+            audioHidden.playbackRate = 1;
+            audioHidden.preservesPitch = true;
+            audioHidden.currentTime = 0;
+            audioHidden.play();
+            btn.textContent = "⏸ PAUSA";
+            return;
+        }
+        btn.textContent = "PROCESANDO...";
+        btn.disabled = true;
+        await new Promise(r => setTimeout(r, 20));
     }
-
-    btn.textContent = "PROCESANDO...";
-    btn.disabled = true;
-    await new Promise(r => setTimeout(r, 30));
 
     try {
         const sr = decodedBuffer.sampleRate;
-        const maxSamples = Math.min(decodedBuffer.length, sr * 15);
+        const maxSamples = Math.min(decodedBuffer.length, sr * MANUAL_PREVIEW_SECONDS);
         const numCh = decodedBuffer.numberOfChannels;
         const channels = [];
         for (let c = 0; c < numCh; c++) {
@@ -673,22 +767,35 @@ async function previewManual() {
             numberOfChannels: numCh, sampleRate: sr, length: processed[0].length,
             getChannelData: (i) => processed[i]
         };
-        const mp3Blob = encodeMP3(fakeBuffer, 160);
-        if (manualPreviewUrl) URL.revokeObjectURL(manualPreviewUrl);
+        const mp3Blob = encodeMP3(fakeBuffer, 128);
+        const oldUrl = manualPreviewUrl;
         manualPreviewUrl = URL.createObjectURL(mp3Blob);
         manualPreviewDirty = false;
 
+        const wasPlaying = !audioHidden.paused;
         audioHidden.src = manualPreviewUrl;
+        audioHidden.loop = true;
         audioHidden.playbackRate = 1;
         audioHidden.preservesPitch = true;
         audioHidden.currentTime = 0;
-        audioHidden.play();
+        if (!isRefresh || wasPlaying) {
+            audioHidden.play();
+        }
+        if (oldUrl) URL.revokeObjectURL(oldUrl);
         btn.textContent = "⏸ PAUSA";
     } catch (e) {
         console.error(e);
+        document.getElementById("inlineAlert").innerHTML =
+            '<div class="inline-alert warn">⚠ No se pudo generar la vista previa. Intenta mover el slider de nuevo.</div>';
         btn.textContent = "▶ PREVIEW";
     }
-    btn.disabled = false;
+    if (!isRefresh) btn.disabled = false;
+}
+
+function scheduleManualRefresh() {
+    if (mode !== "manual" || audioHidden.paused) return;
+    clearTimeout(manualDebounceTimer);
+    manualDebounceTimer = setTimeout(() => previewManual(true), 280);
 }
 
 async function convertir() {
@@ -744,12 +851,20 @@ async function convertir() {
             const nombreFinal = NOMBRE_BASE + "_" + sufijo + ".mp3";
             const durFinal = renderedBufferLike.length / renderedBufferLike.sampleRate;
 
+            // Descarga automática apenas el archivo está listo (sin exigir un segundo clic)
+            const autoLink = document.createElement("a");
+            autoLink.href = url;
+            autoLink.download = nombreFinal;
+            document.body.appendChild(autoLink);
+            autoLink.click();
+            document.body.removeChild(autoLink);
+
             document.getElementById("resultSection").innerHTML =
                 '<div class="result-card">' +
-                  '<div class="result-title">✔ CONVERSIÓN LISTA</div>' +
-                  '<div class="result-info">Duración final: <b>' + formatDuracion(durFinal) + '</b><br>' + robloxTexto + '</div>' +
-                  '<a class="download-link" id="dlLink" href="' + url + '" download="' + nombreFinal + '">⬇ Descargar MP3</a>' +
-                  '<audio controls style="display:block; margin-top:12px; width:100%; height:36px;" src="' + url + '"></audio>' +
+                  '<div class="result-title">✔ Descargado &middot; ' + formatDuracion(durFinal) + '</div>' +
+                  '<div class="result-info">' + robloxTexto + '</div>' +
+                  '<a class="download-link" id="dlLink" href="' + url + '" download="' + nombreFinal + '">⬇ Volver a descargar</a>' +
+                  '<audio controls style="display:block; margin-top:10px; width:100%; height:34px;" src="' + url + '"></audio>' +
                 '</div>';
 
             const dlLink = document.getElementById("dlLink");
@@ -765,7 +880,7 @@ async function convertir() {
 
             btn.disabled = false;
             btn.textContent = "CONVERTIR Y DESCARGAR";
-        }, 100);
+        }, 80);
     } catch (e) {
         console.error(e);
         btn.disabled = false;
@@ -778,15 +893,19 @@ async function convertir() {
 document.getElementById("volSlider").addEventListener("input", function () {
     document.getElementById("volValue").textContent = Math.round(this.value * 100) + "%";
     updateFill(this);
+    manualPreviewDirty = true;
+    scheduleManualRefresh();
 });
 document.getElementById("pitchIdx").addEventListener("input", applyPitch);
 document.getElementById("speedSlider").addEventListener("input", function () {
     manualPreviewDirty = true;
     applyManualInfo();
+    scheduleManualRefresh();
 });
 document.getElementById("toneSlider").addEventListener("input", function () {
     manualPreviewDirty = true;
     applyManualInfo();
+    scheduleManualRefresh();
 });
 
 applyPitch();
