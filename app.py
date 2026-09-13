@@ -77,6 +77,12 @@ QT_VALUES = [round(2 ** (n / 24), 4) for n in STEPS_N]
 # Default: pitch 0.42 → n = -30 → índice 10
 DEFAULT_INDEX = 10
 
+def format_pitch(value):
+    """Formatea el pitch eliminando ceros innecesarios a la derecha."""
+    # Redondear a 4 decimales y eliminar ceros finales
+    formatted = f"{value:.4f}".rstrip('0').rstrip('.')
+    return formatted
+
 def cambiar_pitch(audio, factor):
     """Cambia pitch Y velocidad juntos (efecto vinilo, sin preservar tono)."""
     nuevos_frames = int(audio.frame_rate * factor)
@@ -130,7 +136,7 @@ if archivo_subido is not None:
             <div class="controls">
                 <label>🎚️ Pitch:</label>
                 <input type="range" id="pitchIdx" min="0" max="64" step="1" value="{DEFAULT_INDEX}">
-                <span class="value" id="pitchValue">{QT_VALUES[DEFAULT_INDEX]:.4f}</span>
+                <span class="value" id="pitchValue">{format_pitch(QT_VALUES[DEFAULT_INDEX])}</span>
             </div>
             
             <div class="info" id="stepInfo"></div>
@@ -149,6 +155,14 @@ if archivo_subido is not None:
             audio.webkitPreservesPitch = false;
             audio.msPreservesPitch = false;
             
+            function formatPitch(val) {{
+                // Redondear a 4 decimales y eliminar ceros finales
+                let s = val.toFixed(4);
+                s = s.replace(/0+$/, '');
+                s = s.replace(/\\.$/, '');
+                return s;
+            }}
+            
             function applyPitch() {{
                 const idx = parseInt(pitchIdx.value);
                 const n = idx - 40;
@@ -157,8 +171,8 @@ if archivo_subido is not None:
                 audio.mozPreservesPitch = false;
                 audio.webkitPreservesPitch = false;
                 audio.playbackRate = 1 / pitchVal;
-                pitchValue.textContent = pitchVal.toFixed(4);
-                stepInfo.innerHTML = '📊 Paso <b>n = ' + n + '</b> · Pitch = <b>' + pitchVal.toFixed(4) + '</b> · PlaybackRate = <b>' + (1/pitchVal).toFixed(4) + '</b>';
+                pitchValue.textContent = formatPitch(pitchVal);
+                stepInfo.innerHTML = '📊 Paso <b>n = ' + n + '</b> · Pitch = <b>' + formatPitch(pitchVal) + '</b> · PlaybackRate = <b>' + (1/pitchVal).toFixed(4) + '</b>';
                 mathInfo.innerHTML = '🧮 pitch = 2^(' + n + '/24)  |  Paso: ×' + Math.pow(2, 1/24).toFixed(4) + ' (+2.93%)  |  24 pasos = 1 octava';
             }}
             
@@ -222,13 +236,13 @@ if archivo_subido is not None:
     
     col_info1, col_info2, col_info3 = st.columns(3)
     with col_info1:
-        st.metric("effectSpeed", f"{pitch_usuario:.4f}")
+        st.metric("effectSpeed", f"{format_pitch(pitch_usuario)}")
     with col_info2:
         st.metric("Paso (n)", f"{n_actual}")
     with col_info3:
         st.metric("PlaybackRate", f"{1/pitch_usuario:.4f}")
     
-    st.info(f"📌 **effectSpeed para Roblox = {pitch_usuario:.4f}** (n = {n_actual})")
+    st.info(f"📌 **effectSpeed para Roblox = {format_pitch(pitch_usuario)}** (n = {n_actual})")
     
     st.markdown("---")
     
@@ -255,7 +269,7 @@ if archivo_subido is not None:
                 
                 col_a, col_b, col_c = st.columns(3)
                 with col_a:
-                    st.metric(label="effectSpeed Roblox", value=f"{pitch_usuario:.4f}")
+                    st.metric(label="effectSpeed Roblox", value=f"{format_pitch(pitch_usuario)}")
                 with col_b:
                     st.metric(label="Duración original", value=f"{duracion_original:.1f}s")
                 with col_c:
@@ -264,14 +278,14 @@ if archivo_subido is not None:
                 st.info(
                     f"📌 **Instrucciones para Roblox Studio:**\n\n"
                     f"1. Sube este MP3 a Roblox.\n"
-                    f"2. Pon **effectSpeed = {pitch_usuario:.4f}** en el Sound.\n"
+                    f"2. Pon **effectSpeed = {format_pitch(pitch_usuario)}** en el Sound.\n"
                     f"3. La canción sonará idéntica al original. ✅"
                 )
                 
                 st.download_button(
                     label="📥 Descargar Audio Convertido",
                     data=output_buffer,
-                    file_name=f"{os.path.splitext(archivo_subido.name)[0]}_aki_{pitch_usuario:.3f}.mp3",
+                    file_name=f"{os.path.splitext(archivo_subido.name)[0]}_aki_{format_pitch(pitch_usuario)}.mp3",
                     mime="audio/mpeg"
                 )
             except Exception as e:
