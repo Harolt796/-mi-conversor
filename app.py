@@ -15,25 +15,19 @@ st.set_page_config(
 # ===== ESTILOS =====
 st.markdown("""
     <style>
-    .stApp {
-        background: #08080c;
-    }
+    .stApp { background: #08080c; }
     [data-testid="stHeader"] {display: none;}
     [data-testid="stToolbar"] {display: none;}
     [data-testid="stDecoration"] {display: none;}
     footer {display: none;}
     #MainMenu {display: none;}
-    
-    /* Estilo personalizado para el file uploader */
-    [data-testid="stFileUploader"] {
-        background: transparent;
-    }
+    [data-testid="stFileUploader"] { background: transparent; }
     [data-testid="stFileUploader"] > section {
         background: rgba(20, 18, 30, 0.7) !important;
         border: 2px dashed #4c4a5e !important;
         border-radius: 14px !important;
         padding: 40px 20px !important;
-        min-height: 180px;
+        min-height: 160px;
     }
     [data-testid="stFileUploader"] > section:hover {
         border-color: #8b5cf6 !important;
@@ -44,46 +38,11 @@ st.markdown("""
         color: #c4b5fd !important;
         border-radius: 8px !important;
         font-weight: bold !important;
-        padding: 8px 16px !important;
     }
-    [data-testid="stFileUploader"] button:hover {
-        background: #2a2846 !important;
-        border-color: #8b5cf6 !important;
-    }
-    [data-testid="stFileUploader"] small,
-    [data-testid="stFileUploader"] span,
-    [data-testid="stFileUploader"] label {
-        color: #e5e5e5 !important;
-    }
-    /* Ocultar la lista de archivos subidos por Streamlit */
     [data-testid="stFileUploader"] [data-testid="stFileUploaderFileName"] {
         display: none;
     }
-    /* Textos generales */
-    h1, h2, h3, h4, p, label, .stMarkdown, .stCaption, span, div {
-        color: #ffffff !important;
-    }
-    audio { width: 100%; }
-    .stAlert {
-        background-color: rgba(26, 26, 26, 0.92);
-        border-radius: 10px; border: 2px solid #8b5cf6;
-    }
-    .alerta-verde {
-        background: linear-gradient(135deg, #064e3b 0%, #065f46 50%, #10b981 100%);
-        border: 3px solid #10b981; border-radius: 15px; padding: 15px; margin: 15px 0;
-    }
-    .alerta-verde p { color: #fff !important; margin: 0; }
-    .alerta-roja {
-        background: linear-gradient(135deg, #7f1d1d 0%, #991b1b 50%, #dc2626 100%);
-        border: 3px solid #ff0000; border-radius: 15px; padding: 20px; margin: 15px 0;
-        animation: pulsoRojo 2s infinite;
-    }
-    .alerta-roja h3 { color: #fff !important; margin: 0 0 10px 0; }
-    .alerta-roja p { color: #ffe5e5 !important; margin: 8px 0; }
-    @keyframes pulsoRojo {
-        0%, 100% { box-shadow: 0 0 25px rgba(255, 0, 0, 0.7); }
-        50% { box-shadow: 0 0 45px rgba(255, 0, 0, 1); }
-    }
+    h1, h2, h3, h4, p, label, .stMarkdown, span, div { color: #fff !important; }
     </style>
 """, unsafe_allow_html=True)
 
@@ -96,7 +55,7 @@ with col2:
         st.markdown("<h1 style='text-align:center;'>😺</h1>", unsafe_allow_html=True)
 
 st.markdown("""
-<div style='text-align:center; padding: 10px 0 20px 0;'>
+<div style='text-align:center; padding: 5px 0 15px 0;'>
     <h1 style='font-family: Arial Black; font-size: 2.2em; margin:0;'>AKI <span style='color:#8b5cf6;'>AUDIO</span></h1>
     <p style='color:#888; font-family: monospace; font-size: 13px; letter-spacing: 2px; margin-top: 6px;'>
     AUDIO CONVERTER · V2 · ROBLOX READY
@@ -122,44 +81,16 @@ for n in range(N_MIN, N_MAX + 1):
 
 DEFAULT_IDX = DEFAULT_N - N_MIN
 
-def cambiar_pitch(audio, factor):
-    nuevos_frames = int(audio.frame_rate * factor)
-    if nuevos_frames < 1000 or nuevos_frames > 200000:
-        raise ValueError(f"Factor fuera de rango: {factor}")
-    return audio._spawn(audio.raw_data, overrides={
-        "frame_rate": nuevos_frames
-    }).set_frame_rate(audio.frame_rate)
-
 def format_duracion(seg):
     m = int(seg // 60)
     s = int(seg % 60)
     return f"{m}:{s:02d}"
-
-def semitonos_from_pitch(pitch):
-    """Convierte el pitch al equivalente en semitonos (para mostrar +X.X st)."""
-    import math
-    st_val = 24 * math.log2(pitch)
-    return st_val
 
 # ===== SESSION STATE =====
 if "audio_data" not in st.session_state:
     st.session_state.audio_data = None
     st.session_state.audio_name = None
     st.session_state.duracion_original = None
-    st.session_state.pitch_seleccionado = QT_VALUES[DEFAULT_IDX]["pitch"]
-    st.session_state.last_convert_trigger = None
-    st.session_state.resultado_bytes = None
-    st.session_state.resultado_info = None
-
-# ===== LEER PARÁMETROS DE URL =====
-pitch_url_str = st.query_params.get("aki_pitch", None)
-if pitch_url_str is not None:
-    try:
-        st.session_state.pitch_seleccionado = float(pitch_url_str)
-    except:
-        pass
-
-convert_trigger = st.query_params.get("aki_convert", None)
 
 # ===== SUBIR ARCHIVO =====
 archivo_subido = st.file_uploader(" ", type=["mp3", "wav", "ogg", "flac"], label_visibility="collapsed")
@@ -173,57 +104,15 @@ if archivo_subido is not None:
             f.write(archivo_subido.getbuffer())
         audio_temporal = AudioSegment.from_file(temp_path)
         st.session_state.duracion_original = len(audio_temporal) / 1000.0
-        st.session_state.resultado_bytes = None
-        st.session_state.resultado_info = None
 
-# ===== PROCESAR CONVERSIÓN SI SE ACTIVÓ =====
-if convert_trigger and convert_trigger != st.session_state.last_convert_trigger and st.session_state.audio_data is not None:
-    st.session_state.last_convert_trigger = convert_trigger
-    
-    with st.spinner("Convirtiendo audio..."):
-        try:
-            temp_path = f"/tmp/{st.session_state.audio_name}"
-            audio = AudioSegment.from_file(temp_path)
-            
-            pitch_actual = st.session_state.pitch_seleccionado
-            factor_conversion = 1.0 / pitch_actual
-            audio_pitch = cambiar_pitch(audio, factor_conversion)
-            duracion_final = len(audio_pitch) / 1000.0
-            
-            output_buffer = audio_pitch.export(format="mp3", bitrate="192k")
-            bytes_finales = output_buffer.getvalue() if hasattr(output_buffer, 'getvalue') else bytes(output_buffer)
-            
-            st.session_state.resultado_bytes = bytes_finales
-            st.session_state.resultado_info = {
-                "duracion_final": duracion_final,
-                "texto_pitch": format_pitch(pitch_actual),
-                "nombre": f"{os.path.splitext(st.session_state.audio_name)[0]}_aki_{format_pitch(pitch_actual)}.mp3"
-            }
-        except Exception as e:
-            st.error(f"Error al procesar: {e}")
-
-# ===== REPRODUCTOR PRINCIPAL (dentro del iframe) =====
+# ===== REPRODUCTOR + CONVERSIÓN + DESCARGA (TODO DENTRO DEL IFRAME) =====
 if st.session_state.audio_data is not None:
     audio_b64 = base64.b64encode(st.session_state.audio_data).decode()
     duracion_original = st.session_state.duracion_original
-    pitch_seleccionado = st.session_state.pitch_seleccionado
-    texto_seleccionado = format_pitch(pitch_seleccionado)
-    
-    # Info del resultado si existe
-    resultado_b64 = ""
-    resultado_nombre = ""
-    if st.session_state.resultado_bytes is not None and st.session_state.resultado_info is not None:
-        resultado_b64 = base64.b64encode(st.session_state.resultado_bytes).decode()
-        resultado_nombre = st.session_state.resultado_info["nombre"]
-    
-    idx_inicial = DEFAULT_IDX
-    for i, v in enumerate(QT_VALUES):
-        if abs(v["pitch"] - pitch_seleccionado) < 0.0005:
-            idx_inicial = i
-            break
+    nombre_archivo = st.session_state.audio_name
+    nombre_base = os.path.splitext(nombre_archivo)[0]
     
     valores_js = "[" + ",".join([f'{{"n":{v["n"]},"pitch":{v["pitch"]},"texto":"{v["texto"]}"}}' for v in QT_VALUES]) + "]"
-    nombre_archivo = st.session_state.audio_name
     
     html_player = f"""
     <!DOCTYPE html>
@@ -253,7 +142,6 @@ if st.session_state.audio_data is not None:
             overflow: hidden;
         }}
         
-        /* Header del track */
         .track-header {{
             display: flex;
             justify-content: space-between;
@@ -265,6 +153,10 @@ if st.session_state.audio_data is not None:
             color: #ffffff;
             font-weight: 700;
             font-size: 14px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            max-width: 70%;
         }}
         .status {{
             color: #5eead4;
@@ -276,25 +168,25 @@ if st.session_state.audio_data is not None:
             margin-left: 8px;
         }}
         
-        /* Fila de controles principales */
         .controls-row {{
             display: flex;
             align-items: center;
             gap: 12px;
-            padding: 10px 20px;
+            padding: 12px 20px;
         }}
         .btn {{
             background: #1a1826;
             color: #e5e5e5;
             border: 1px solid #2a2846;
             border-radius: 8px;
-            padding: 8px 14px;
+            padding: 10px 16px;
             font-family: 'JetBrains Mono', monospace;
             font-size: 11px;
             font-weight: 700;
             letter-spacing: 1px;
             cursor: pointer;
             transition: all 0.15s;
+            white-space: nowrap;
         }}
         .btn:hover {{
             background: #2a2846;
@@ -307,33 +199,41 @@ if st.session_state.audio_data is not None:
             color: white;
         }}
         
-        input[type=range] {{
+        /* 🔑 SLIDER DE PITCH GRANDE */
+        input[type=range].pitch-slider {{
             -webkit-appearance: none;
             appearance: none;
-            height: 4px;
-            border-radius: 2px;
+            flex: 1;
+            height: 10px;
+            border-radius: 5px;
             background: #2a2846;
             outline: none;
+            margin: 0 12px;
+            cursor: pointer;
         }}
-        input[type=range]::-webkit-slider-thumb {{
+        input[type=range].pitch-slider::-webkit-slider-thumb {{
             -webkit-appearance: none;
-            width: 14px; height: 14px;
+            width: 28px;
+            height: 28px;
             border-radius: 50%;
             background: #8b5cf6;
-            cursor: pointer;
-            border: 2px solid #0f0e17;
+            cursor: grab;
+            border: 3px solid #0f0e17;
+            box-shadow: 0 0 10px rgba(139, 92, 246, 0.6);
         }}
-        input[type=range]::-moz-range-thumb {{
-            width: 14px; height: 14px;
+        input[type=range].pitch-slider::-webkit-slider-thumb:active {{
+            cursor: grabbing;
+            background: #a78bfa;
+            box-shadow: 0 0 20px rgba(139, 92, 246, 1);
+        }}
+        input[type=range].pitch-slider::-moz-range-thumb {{
+            width: 28px;
+            height: 28px;
             border-radius: 50%;
             background: #8b5cf6;
-            cursor: pointer;
-            border: 2px solid #0f0e17;
-        }}
-        
-        .pitch-slider {{
-            flex: 1;
-            margin: 0 8px;
+            cursor: grab;
+            border: 3px solid #0f0e17;
+            box-shadow: 0 0 10px rgba(139, 92, 246, 0.6);
         }}
         
         .pitch-info {{
@@ -346,7 +246,6 @@ if st.session_state.audio_data is not None:
             color: #c4b5fd;
         }}
         
-        /* Fila inferior */
         .bottom-row {{
             display: flex;
             align-items: center;
@@ -354,6 +253,7 @@ if st.session_state.audio_data is not None:
             padding: 12px 20px 18px 20px;
             border-top: 1px solid #1a1826;
             margin-top: 8px;
+            flex-wrap: wrap;
         }}
         
         .vol-label {{
@@ -363,15 +263,40 @@ if st.session_state.audio_data is not None:
             letter-spacing: 1px;
         }}
         
-        .vol-slider {{
-            width: 100px;
+        /* 🔑 SLIDER DE VOLUMEN GRANDE */
+        input[type=range].vol-slider {{
+            -webkit-appearance: none;
+            appearance: none;
+            width: 120px;
+            height: 8px;
+            border-radius: 4px;
+            background: #2a2846;
+            outline: none;
+            cursor: pointer;
+        }}
+        input[type=range].vol-slider::-webkit-slider-thumb {{
+            -webkit-appearance: none;
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            background: #8b5cf6;
+            cursor: grab;
+            border: 3px solid #0f0e17;
+        }}
+        input[type=range].vol-slider::-moz-range-thumb {{
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            background: #8b5cf6;
+            cursor: grab;
+            border: 3px solid #0f0e17;
         }}
         
         .vol-value {{
             color: #888;
             font-family: 'JetBrains Mono', monospace;
             font-size: 11px;
-            min-width: 32px;
+            min-width: 38px;
         }}
         
         .format-group {{
@@ -389,7 +314,6 @@ if st.session_state.audio_data is not None:
             font-size: 10px;
             font-weight: 700;
             cursor: pointer;
-            transition: all 0.15s;
         }}
         .fmt-btn.active {{
             background: #1a1826;
@@ -402,14 +326,13 @@ if st.session_state.audio_data is not None:
             color: white;
             border: none;
             border-radius: 10px;
-            padding: 10px 20px;
+            padding: 12px 22px;
             font-family: 'Inter', sans-serif;
             font-size: 13px;
             font-weight: 800;
             letter-spacing: 1px;
             cursor: pointer;
             transition: all 0.2s;
-            margin-left: 8px;
         }}
         .convert-btn:hover {{
             background: linear-gradient(135deg, #6d28d9 0%, #7c3aed 100%);
@@ -421,16 +344,13 @@ if st.session_state.audio_data is not None:
             cursor: wait;
         }}
         
-        /* Audio oculto (controlado por JS) */
         #audioHidden {{ display: none; }}
         
-        /* Alerta inline */
         .inline-alert {{
             padding: 10px 14px;
             border-radius: 8px;
             margin: 8px 20px 12px 20px;
             font-size: 12px;
-            font-family: 'Inter', sans-serif;
         }}
         .inline-alert.ok {{
             background: rgba(16, 185, 129, 0.15);
@@ -443,7 +363,6 @@ if st.session_state.audio_data is not None:
             color: #fca5a5;
         }}
         
-        /* Sección de resultado / descarga */
         .result-section {{
             margin-top: 12px;
             padding: 16px 20px;
@@ -453,7 +372,6 @@ if st.session_state.audio_data is not None:
         }}
         .result-section h3 {{
             color: #6ee7b7;
-            font-family: 'Inter', sans-serif;
             font-size: 14px;
             margin: 0 0 12px 0;
             font-weight: 700;
@@ -463,7 +381,7 @@ if st.session_state.audio_data is not None:
             width: 100%;
             text-align: center;
             background: linear-gradient(135deg, #059669 0%, #10b981 100%);
-            color: white;
+            color: white !important;
             padding: 14px;
             border-radius: 10px;
             font-weight: 800;
@@ -471,10 +389,8 @@ if st.session_state.audio_data is not None:
             font-size: 14px;
             letter-spacing: 1px;
             box-sizing: border-box;
-            transition: all 0.2s;
-            border: none;
             cursor: pointer;
-            font-family: 'Inter', sans-serif;
+            border: none;
         }}
         .download-link:hover {{
             background: linear-gradient(135deg, #047857 0%, #059669 100%);
@@ -488,12 +404,24 @@ if st.session_state.audio_data is not None:
             margin-top: 10px;
         }}
         
-        /* Reproductor de resultado */
-        #audioResult {{
+        #audioResult {{ width: 100%; margin-bottom: 12px; }}
+        
+        .progress-bar {{
             width: 100%;
-            margin-bottom: 12px;
+            height: 6px;
+            background: #2a2846;
+            border-radius: 3px;
+            overflow: hidden;
+            margin: 10px 0;
+        }}
+        .progress-fill {{
+            height: 100%;
+            background: linear-gradient(90deg, #7c3aed, #8b5cf6);
+            width: 0%;
+            transition: width 0.2s;
         }}
     </style>
+    <script src="https://cdn.jsdelivr.net/npm/lamejs@1.2.1/lame.min.js"></script>
     </head>
     <body>
         <div class="container">
@@ -505,8 +433,8 @@ if st.session_state.audio_data is not None:
                 
                 <div class="controls-row">
                     <button class="btn" id="previewBtn" onclick="togglePreview()">▶ PREVIEW</button>
-                    <button class="btn active" id="manualBtn">MANUAL</button>
-                    <input type="range" class="pitch-slider" id="pitchIdx" min="0" max="{len(QT_VALUES)-1}" step="1" value="{idx_inicial}">
+                    <button class="btn active">MANUAL</button>
+                    <input type="range" class="pitch-slider" id="pitchIdx" min="0" max="{len(QT_VALUES)-1}" step="1" value="{DEFAULT_IDX}">
                     <span class="pitch-info" id="pitchInfo"></span>
                 </div>
                 
@@ -518,9 +446,9 @@ if st.session_state.audio_data is not None:
                     <span class="vol-value" id="volValue">100%</span>
                     
                     <div class="format-group">
-                        <button class="fmt-btn" onclick="setFormat('OGG')">OGG</button>
-                        <button class="fmt-btn active" onclick="setFormat('MP3')">MP3</button>
-                        <button class="fmt-btn" onclick="setFormat('WAV')">WAV</button>
+                        <button class="fmt-btn">OGG</button>
+                        <button class="fmt-btn active">MP3</button>
+                        <button class="fmt-btn">WAV</button>
                     </div>
                     
                     <button class="convert-btn" id="convertBtn" onclick="convertir()">CONVERT</button>
@@ -536,8 +464,8 @@ if st.session_state.audio_data is not None:
             const VALUES = {valores_js};
             const DURACION_ORIGINAL = {duracion_original};
             const MAX_DUR = 420;
-            const RESULTADO_B64 = "{resultado_b64}";
-            const RESULTADO_NOMBRE = "{resultado_nombre}";
+            const AUDIO_B64 = "{audio_b64}";
+            const NOMBRE_BASE = "{nombre_base}";
             
             const audio = document.getElementById('audioHidden');
             const pitchIdx = document.getElementById('pitchIdx');
@@ -549,10 +477,14 @@ if st.session_state.audio_data is not None:
             const convertBtn = document.getElementById('convertBtn');
             const resultSection = document.getElementById('resultSection');
             
+            // 🔑 Desactivar preservación de pitch para cambiar velocidad + tono juntos
             audio.preservesPitch = false;
             audio.mozPreservesPitch = false;
             audio.webkitPreservesPitch = false;
             audio.msPreservesPitch = false;
+            
+            // Buffer decodificado (se llena al cargar)
+            let decodedBuffer = null;
             
             function formatDuracion(seg) {{
                 const m = Math.floor(seg / 60);
@@ -560,12 +492,32 @@ if st.session_state.audio_data is not None:
                 return m + ':' + String(s).padStart(2,'0');
             }}
             
+            function base64ToArrayBuffer(b64) {{
+                const binary = atob(b64);
+                const bytes = new Uint8Array(binary.length);
+                for (let i = 0; i < binary.length; i++) {{
+                    bytes[i] = binary.charCodeAt(i);
+                }}
+                return bytes.buffer;
+            }}
+            
+            // Decodificar el audio al cargar
+            (async function initDecode() {{
+                try {{
+                    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                    const arrayBuffer = base64ToArrayBuffer(AUDIO_B64);
+                    decodedBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+                    console.log('Audio decodificado:', decodedBuffer.duration.toFixed(1), 'seg');
+                }} catch (e) {{
+                    console.error('Error al decodificar:', e);
+                }}
+            }})();
+            
             function applyPitch() {{
                 const idx = parseInt(pitchIdx.value);
                 const v = VALUES[idx];
                 const pitchVal = v.pitch;
                 
-                // 🔑 CRÍTICO: forzar preservesPitch=false cada vez
                 audio.preservesPitch = false;
                 audio.mozPreservesPitch = false;
                 audio.webkitPreservesPitch = false;
@@ -600,62 +552,163 @@ if st.session_state.audio_data is not None:
                 previewBtn.textContent = '▶ PREVIEW';
             }});
             
-            function setFormat(fmt) {{
-                document.querySelectorAll('.fmt-btn').forEach(b => b.classList.remove('active'));
-                event.target.classList.add('active');
-            }}
-            
-            function convertir() {{
-                convertBtn.disabled = true;
-                convertBtn.textContent = '⏳...';
-                try {{
-                    const pitchVal = VALUES[parseInt(pitchIdx.value)].pitch;
-                    const url = new URL(window.parent.location.href);
-                    url.searchParams.set('aki_pitch', pitchVal.toFixed(3));
-                    url.searchParams.set('aki_convert', Date.now().toString());
-                    window.parent.location.href = url.toString();
-                }} catch(e) {{
-                    alert('Error: ' + e);
-                    convertBtn.disabled = false;
-                    convertBtn.textContent = 'CONVERT';
-                }}
-            }}
-            
-            // Mostrar la sección de resultado si ya hay audio convertido
-            function mostrarResultado() {{
-                if (!RESULTADO_B64) return;
+            // 🔑 CODIFICADOR MP3 CON LAMEJS
+            function encodeMP3(audioBuffer, kbps) {{
+                const sampleRate = audioBuffer.sampleRate;
+                const numChannels = Math.min(2, audioBuffer.numberOfChannels);
+                const mp3encoder = new lamejs.Mp3Encoder(numChannels, sampleRate, kbps);
                 
-                // Convertir base64 a Blob
-                const byteChars = atob(RESULTADO_B64);
-                const byteNumbers = new Array(byteChars.length);
-                for (let i = 0; i < byteChars.length; i++) {{
-                    byteNumbers[i] = byteChars.charCodeAt(i);
+                const sampleBlockSize = 1152;
+                const mp3Data = [];
+                
+                const left = audioBuffer.getChannelData(0);
+                const right = numChannels > 1 ? audioBuffer.getChannelData(1) : left;
+                
+                const leftInt = new Int16Array(left.length);
+                const rightInt = new Int16Array(right.length);
+                for (let i = 0; i < left.length; i++) {{
+                    leftInt[i] = Math.max(-32768, Math.min(32767, left[i] * 32767));
+                    rightInt[i] = Math.max(-32768, Math.min(32767, right[i] * 32767));
                 }}
-                const byteArray = new Uint8Array(byteNumbers);
-                const blob = new Blob([byteArray], {{ type: 'audio/mpeg' }});
-                const url = URL.createObjectURL(blob);
+                
+                for (let i = 0; i < leftInt.length; i += sampleBlockSize) {{
+                    const leftChunk = leftInt.subarray(i, i + sampleBlockSize);
+                    const rightChunk = rightInt.subarray(i, i + sampleBlockSize);
+                    
+                    let mp3buf;
+                    if (numChannels === 2) {{
+                        mp3buf = mp3encoder.encodeBuffer(leftChunk, rightChunk);
+                    }} else {{
+                        mp3buf = mp3encoder.encodeBuffer(leftChunk);
+                    }}
+                    
+                    if (mp3buf.length > 0) {{
+                        mp3Data.push(new Uint8Array(mp3buf));
+                    }}
+                }}
+                
+                const mp3buf = mp3encoder.flush();
+                if (mp3buf.length > 0) {{
+                    mp3Data.push(new Uint8Array(mp3buf));
+                }}
+                
+                return new Blob(mp3Data, {{ type: 'audio/mp3' }});
+            }}
+            
+            // 🔑 CONVERSIÓN 100% EN EL NAVEGADOR
+            async function convertir() {{
+                if (!decodedBuffer) {{
+                    alert('El audio aún se está procesando. Espera unos segundos e intenta de nuevo.');
+                    return;
+                }}
+                
+                convertBtn.disabled = true;
+                convertBtn.textContent = '⏳ PROCESANDO...';
                 
                 resultSection.innerHTML = `
-                    <div class="result-section">
-                        <h3>✅ ¡Conversión completada!</h3>
-                        <audio id="audioResult" controls src="${{url}}"></audio>
-                        <a class="download-link" id="dlLink" download="${{RESULTADO_NOMBRE}}">📥 DESCARGAR AUDIO CONVERTIDO</a>
-                        <div class="result-info">${{RESULTADO_NOMBRE}}</div>
+                    <div class="result-section" style="background: rgba(139, 92, 246, 0.15); border-color: #8b5cf6;">
+                        <h3 style="color: #c4b5fd;">⏳ Convirtiendo audio...</h3>
+                        <div class="progress-bar"><div class="progress-fill" id="progFill"></div></div>
+                        <div class="result-info" id="progText">Preparando...</div>
                     </div>
                 `;
                 
-                const dlLink = document.getElementById('dlLink');
-                dlLink.href = url;
-                dlLink.download = RESULTADO_NOMBRE;
-                dlLink.addEventListener('click', function(e) {{
-                    // Fallback: forzar descarga
-                    const a = document.createElement('a');
-                    a.href = url;
-                    a.download = RESULTADO_NOMBRE;
-                    document.body.appendChild(a);
-                    a.click();
-                    document.body.removeChild(a);
-                }});
+                try {{
+                    const idx = parseInt(pitchIdx.value);
+                    const pitchVal = VALUES[idx].pitch;
+                    const factor = 1 / pitchVal;
+                    
+                    // Aplicar volumen master
+                    const vol = parseFloat(volSlider.value);
+                    
+                    // Crear contexto offline
+                    const newLength = Math.round(decodedBuffer.length / factor);
+                    const offlineCtx = new OfflineAudioContext(
+                        decodedBuffer.numberOfChannels,
+                        newLength,
+                        decodedBuffer.sampleRate
+                    );
+                    
+                    const source = offlineCtx.createBufferSource();
+                    source.buffer = decodedBuffer;
+                    source.playbackRate.value = factor;
+                    
+                    // Gain node para el volumen
+                    const gain = offlineCtx.createGain();
+                    gain.gain.value = vol;
+                    
+                    source.connect(gain);
+                    gain.connect(offlineCtx.destination);
+                    source.start();
+                    
+                    document.getElementById('progText').textContent = 'Renderizando audio...';
+                    document.getElementById('progFill').style.width = '30%';
+                    
+                    // Renderizar offline
+                    const rendered = await offlineCtx.startRendering();
+                    
+                    document.getElementById('progText').textContent = 'Codificando MP3...';
+                    document.getElementById('progFill').style.width = '70%';
+                    
+                    // Codificar a MP3 (en un setTimeout para no bloquear la UI)
+                    setTimeout(() => {{
+                        const mp3Blob = encodeMP3(rendered, 192);
+                        const url = URL.createObjectURL(mp3Blob);
+                        const durFinal = rendered.duration;
+                        const nombreFinal = NOMBRE_BASE + '_aki_' + VALUES[idx].texto + '.mp3';
+                        
+                        document.getElementById('progFill').style.width = '100%';
+                        
+                        // Verificar duración
+                        let alertaHTML = '';
+                        if (durFinal > MAX_DUR) {{
+                            alertaHTML = '<div class="inline-alert warn" style="margin: 10px 0;">⚠️ El audio dura ' + formatDuracion(durFinal) + ' (más de 7:00). Roblox podría rechazarlo.</div>';
+                        }} else {{
+                            alertaHTML = '<div class="inline-alert ok" style="margin: 10px 0;">✅ Duración: ' + formatDuracion(durFinal) + ' — dentro del límite de Roblox.</div>';
+                        }}
+                        
+                        resultSection.innerHTML = `
+                            <div class="result-section">
+                                <h3>✅ ¡Conversión completada!</h3>
+                                ${{alertaHTML}}
+                                <audio id="audioResult" controls src="${{url}}"></audio>
+                                <a class="download-link" id="dlLink">📥 DESCARGAR AUDIO CONVERTIDO</a>
+                                <div class="result-info">${{nombreFinal}}</div>
+                            </div>
+                        `;
+                        
+                        // 🔑 Configurar el enlace de descarga correctamente
+                        const dlLink = document.getElementById('dlLink');
+                        dlLink.href = url;
+                        dlLink.download = nombreFinal;
+                        
+                        // Fallback: forzar descarga con click manual
+                        dlLink.addEventListener('click', function(e) {{
+                            e.preventDefault();
+                            const a = document.createElement('a');
+                            a.href = url;
+                            a.download = nombreFinal;
+                            a.style.display = 'none';
+                            document.body.appendChild(a);
+                            a.click();
+                            document.body.removeChild(a);
+                        }});
+                        
+                        convertBtn.disabled = false;
+                        convertBtn.textContent = 'CONVERT';
+                    }}, 100);
+                    
+                }} catch (e) {{
+                    console.error(e);
+                    resultSection.innerHTML = `
+                        <div class="result-section" style="background: rgba(220, 38, 38, 0.15); border-color: #dc2626;">
+                            <h3 style="color: #fca5a5;">❌ Error al convertir</h3>
+                            <div class="result-info">${{e.message}}</div>
+                        </div>
+                    `;
+                    convertBtn.disabled = false;
+                    convertBtn.textContent = 'CONVERT';
+                }}
             }}
             
             volSlider.addEventListener('input', function() {{
@@ -665,22 +718,9 @@ if st.session_state.audio_data is not None:
             
             pitchIdx.addEventListener('input', applyPitch);
             applyPitch();
-            mostrarResultado();
         </script>
     </body>
     </html>
     """
     
-    components.html(html_player, height=520)
-    
-    # ===== INFO EXTRA DEBAJO (opcional, con estilos coherentes) =====
-    if st.session_state.resultado_info is not None:
-        info = st.session_state.resultado_info
-        if info["duracion_final"] > MAX_DURATION_SEC:
-            st.markdown(f"""
-            <div class="alerta-roja">
-                <h3>⚠️ El audio convertido supera los 7 minutos</h3>
-                <p><b>Duración convertida:</b> {format_duracion(info['duracion_final'])}</p>
-                <p>Roblox podría rechazarlo. Puedes intentar subirlo de todas formas.</p>
-            </div>
-            """, unsafe_allow_html=True)
+    components.html(html_player, height=560)
