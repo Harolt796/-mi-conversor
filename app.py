@@ -15,12 +15,15 @@ st.set_page_config(
 # ===== ESTILOS =====
 st.markdown("""
     <style>
+    /* Fondo degradado */
     .stApp {
         background: radial-gradient(circle at center, 
             #ffffff 0%, #f0f0f0 8%, #d0d0d0 20%, #909090 40%, 
             #505050 60%, #282828 80%, #0a0a0a 100%);
         background-attachment: fixed;
     }
+    
+    /* Textos blancos con borde negro */
     h1, h2, h3, h4, p, label, .stMarkdown, .stCaption, span, div, li {
         color: #ffffff !important;
         text-shadow: -1px -1px 0 #000, 1px -1px 0 #000,
@@ -28,6 +31,7 @@ st.markdown("""
             0px 0px 6px rgba(0,0,0,0.9) !important;
     }
     h1 { font-family: 'Arial Black', sans-serif; text-align: center; font-size: 2.5em !important; }
+    
     .stFileUploader {
         background-color: rgba(26, 26, 26, 0.92);
         border: 2px dashed #8b5cf6;
@@ -35,54 +39,59 @@ st.markdown("""
         backdrop-filter: blur(5px);
     }
     
-    /* 🔑 Eliminar gaps entre bloques verticales */
-    div[data-testid="stVerticalBlock"] {
+    /* 🔑 ELIMINAR TODOS LOS GAPS de Streamlit */
+    [data-testid="stVerticalBlock"],
+    [data-testid="stVerticalBlockBorderWrapper"],
+    [data-testid="stVerticalBlock"] > div,
+    [data-testid="stElementContainer"] {
         gap: 0 !important;
-    }
-    div[data-testid="stVerticalBlock"] > div {
-        margin-bottom: 0 !important;
-        padding-bottom: 0 !important;
+        margin: 0 !important;
+        padding: 0 !important;
     }
     
-    /* 🔑 Eliminar gap entre iframe y botón */
-    div[data-testid="stVerticalBlock"] > div:has(iframe) {
-        margin-bottom: -14px !important;
-        padding-bottom: 0 !important;
+    /* 🔑 Iframe pegado, sin márgenes */
+    [data-testid="stCustomComponentV1"] {
+        margin: 0 !important;
+        padding: 0 !important;
+        margin-bottom: -18px !important;
+        line-height: 0 !important;
     }
-    div[data-testid="stVerticalBlock"] > div:has(div.stButton) {
-        margin-top: 0 !important;
-        padding-top: 0 !important;
-    }
-    
-    /* 🔑 iframe sin margen inferior */
     iframe {
         display: block !important;
-        margin-bottom: 0 !important;
-        padding-bottom: 0 !important;
+        margin: 0 !important;
+        padding: 0 !important;
         border-bottom: none !important;
+        border-radius: 15px 15px 0 0 !important;
     }
     
-    /* 🔑 Botón pegado al reproductor */
-    div.stButton {
-        margin-top: -14px !important;
-        padding-top: 0 !important;
+    /* 🔑 Botón fusionado con el iframe */
+    [data-testid="stButton"] {
+        margin: 0 !important;
+        padding: 0 !important;
     }
-    .stButton > button {
-        background: linear-gradient(135deg, #7c3aed 0%, #8b5cf6 100%);
+    [data-testid="stButton"] > button {
+        background: linear-gradient(135deg, #7c3aed 0%, #8b5cf6 100%) !important;
         color: white !important;
         border-radius: 0 0 15px 15px !important;
         border: 2px solid #8b5cf6 !important;
-        border-top: 1px solid #6d28d9 !important;
-        padding: 16px 24px;
-        font-weight: bold; width: 100%;
-        text-shadow: 1px 1px 2px #000 !important; font-size: 18px;
-        box-shadow: 0 6px 15px rgba(139, 92, 246, 0.5);
-        margin-top: 0 !important;
+        border-top: none !important;
+        padding: 16px 24px !important;
+        font-weight: bold !important;
+        width: 100% !important;
+        text-shadow: 1px 1px 2px #000 !important;
+        font-size: 18px !important;
+        box-shadow: 0 8px 15px rgba(139, 92, 246, 0.4) !important;
+        margin: 0 !important;
+        height: auto !important;
+        min-height: auto !important;
     }
-    .stButton > button:hover {
-        background: linear-gradient(135deg, #6d28d9 0%, #7c3aed 100%);
-        box-shadow: 0 6px 25px rgba(139, 92, 246, 0.9);
+    [data-testid="stButton"] > button:hover {
+        background: linear-gradient(135deg, #6d28d9 0%, #7c3aed 100%) !important;
+        box-shadow: 0 8px 25px rgba(139, 92, 246, 0.8) !important;
     }
+    
+    /* Quitar el margen del texto entre uploader y player */
+    .stMarkdown { margin: 0 !important; padding: 0 !important; }
     
     audio { width: 100%; border-radius: 10px; }
     .stAlert {
@@ -90,6 +99,7 @@ st.markdown("""
         border-radius: 10px; border: 2px solid #8b5cf6;
     }
     
+    /* Alertas */
     .alerta-roja {
         background: linear-gradient(135deg, #7f1d1d 0%, #991b1b 50%, #dc2626 100%);
         border: 3px solid #ff0000;
@@ -122,7 +132,6 @@ with col2:
 
 st.markdown("<h1>AKI 😺 Audio Converter</h1>", unsafe_allow_html=True)
 st.markdown("<p style='text-align: center;'>Sube tu canción, ajusta el pitch y volumen, y descarga el archivo para Roblox.</p>", unsafe_allow_html=True)
-st.markdown("---")
 
 # ===== CONSTANTES =====
 MAX_DURATION_SEC = 7 * 60
@@ -181,9 +190,6 @@ if archivo_subido is not None:
     audio_temporal = AudioSegment.from_file(temp_path)
     duracion_original = len(audio_temporal) / 1000.0
     
-    st.markdown(f"**📊 Duración original:** {format_duracion(duracion_original)} ({duracion_original:.1f} seg)")
-    
-    # Índice inicial
     idx_inicial = DEFAULT_IDX
     for i, v in enumerate(QT_VALUES):
         if abs(v["pitch"] - pitch_seleccionado) < 0.0005:
@@ -198,16 +204,23 @@ if archivo_subido is not None:
     <html>
     <head>
     <style>
-        body {{ background: transparent; font-family: Arial, sans-serif; margin: 0; padding: 0; }}
+        html, body {{ 
+            background: transparent; 
+            font-family: Arial, sans-serif; 
+            margin: 0; 
+            padding: 0;
+            overflow: hidden;
+        }}
         .player {{
             background: rgba(26, 26, 26, 0.95);
             border-radius: 15px 15px 0 0;
             border: 2px solid #8b5cf6;
             border-bottom: none;
-            padding: 20px 20px 18px 20px;
+            padding: 18px 18px 14px 18px;
+            box-sizing: border-box;
         }}
-        audio {{ width: 100%; margin-bottom: 15px; }}
-        .row {{ display: flex; align-items: center; gap: 15px; margin-bottom: 12px; }}
+        audio {{ width: 100%; margin-bottom: 12px; }}
+        .row {{ display: flex; align-items: center; gap: 15px; margin-bottom: 10px; }}
         .row label {{ color: #fff; font-size: 14px; white-space: nowrap; text-shadow: 1px 1px 2px #000; font-weight: bold; min-width: 90px; }}
         input[type=range] {{ flex: 1; -webkit-appearance: none; height: 8px; border-radius: 5px; background: #333; outline: none; }}
         input[type=range]::-webkit-slider-thumb {{
@@ -217,13 +230,13 @@ if archivo_subido is not None:
         .value {{ background: #8b5cf6; padding: 6px 14px; border-radius: 8px; font-weight: bold;
             min-width: 80px; text-align: center; color: white; text-shadow: 1px 1px 2px #000; border: 2px solid #000;
             font-family: monospace; font-size: 15px; }}
-        .info {{ color: #fff; font-size: 13px; margin-top: 10px; text-shadow: 1px 1px 2px #000; padding: 12px;
+        .info {{ color: #fff; font-size: 13px; margin-top: 8px; text-shadow: 1px 1px 2px #000; padding: 10px;
             background: rgba(0,0,0,0.5); border-radius: 8px; border-left: 4px solid #8b5cf6; }}
         .alerta {{ background: linear-gradient(135deg, #7f1d1d 0%, #991b1b 50%, #dc2626 100%);
-            border: 3px solid #ff0000; border-radius: 12px; padding: 15px; margin-top: 10px;
+            border: 3px solid #ff0000; border-radius: 12px; padding: 12px; margin-top: 8px;
             color: white; text-shadow: 1px 1px 3px #000; animation: pulso 2s infinite; font-size: 13px; }}
         .ok {{ background: linear-gradient(135deg, #064e3b 0%, #10b981 100%);
-            border: 3px solid #10b981; border-radius: 12px; padding: 12px; margin-top: 10px;
+            border: 3px solid #10b981; border-radius: 12px; padding: 10px; margin-top: 8px;
             color: white; text-shadow: 1px 1px 3px #000; font-size: 13px; }}
         @keyframes pulso {{
             0%, 100% {{ box-shadow: 0 0 20px rgba(255, 0, 0, 0.6); }}
@@ -317,10 +330,10 @@ if archivo_subido is not None:
     </html>
     """
     
-    components.html(html_player, height=385)
+    components.html(html_player, height=390)
     
-    # ===== BOTÓN DE CONVERTIR (pegado al reproductor) =====
-    if st.button("🔄 Convertir audio"):
+    # ===== BOTÓN DE CONVERTIR =====
+    if st.button("🔄 Convertir audio", key="convertir_btn"):
         with st.spinner("Procesando audio completo..."):
             try:
                 audio = AudioSegment.from_file(archivo_subido)
