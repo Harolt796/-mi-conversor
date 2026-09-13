@@ -47,7 +47,7 @@ if _logo_b64:
 # ----------------------------------------------------------------------------
 CSS_TEMPLATE = """
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700;800&display=swap');
 
 html, body, [class*="css"] {
     font-family: 'Inter', sans-serif;
@@ -174,6 +174,34 @@ iframe {
     position: relative;
     z-index: 1;
 }
+
+[data-testid="stExpander"] {
+    border: 1px solid rgba(255,255,255,0.08) !important;
+    border-radius: 14px !important;
+    background: linear-gradient(160deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01)) !important;
+    margin: 14px 0 22px 0 !important;
+    overflow: hidden;
+}
+[data-testid="stExpander"] summary {
+    font-family: 'Inter', sans-serif !important;
+    font-weight: 600 !important;
+    color: #d9c8ff !important;
+}
+[data-testid="stExpander"] p, [data-testid="stExpander"] li {
+    color: rgba(230, 225, 245, 0.82) !important;
+    font-family: 'Inter', sans-serif !important;
+    font-size: 0.88rem !important;
+    line-height: 1.65 !important;
+}
+
+/* Optimización para celulares: menos desenfoque y menos animación simultánea */
+@media (max-width: 600px) {
+    .stApp::before, .stApp::after { animation-duration: 20s; }
+    [data-testid="stFileUploader"] { animation: none; backdrop-filter: none; padding: 1.8rem 1rem; min-height: 130px; }
+}
+@media (prefers-reduced-motion: reduce) {
+    .stApp::before, .stApp::after, [data-testid="stFileUploader"] { animation: none !important; }
+}
 </style>
 """
 
@@ -222,52 +250,24 @@ st.markdown("""
     0% { transform: translate(0, 0) scale(1); }
     100% { transform: translate(30px, -40px) scale(1.2); }
 }
+/* En celulares reducimos el desenfoque y quitamos una capa: el blur pesado
+   es lo que más consume en equipos modestos. */
+@media (max-width: 600px) {
+    .aki-smoke { filter: blur(40px); opacity: 0.4; }
+    .aki-smoke-3 { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+    .aki-smoke { animation: none !important; }
+}
 </style>
 """, unsafe_allow_html=True)
 
 # ----------------------------------------------------------------------------
-# ENCABEZADO / LOGO
+# ENCABEZADO (sin el logo arriba: el logo ahora solo vive de fondo)
 # ----------------------------------------------------------------------------
-if _logo_b64:
-    st.markdown(
-        f"""
-        <div style="display:flex; justify-content:center; margin-bottom:-10px;">
-            <div style="position:relative; width:168px; height:168px; display:flex;
-                        align-items:center; justify-content:center;">
-                <div style="position:absolute; inset:-30px; border-radius:50%;
-                            background: radial-gradient(circle, rgba(139,92,246,0.5), transparent 70%);
-                            filter: blur(12px); animation: akiPulse 3.2s ease-in-out infinite;"></div>
-                <div style="position:absolute; inset:-3px; border-radius:50%;
-                            background: conic-gradient(from 0deg, #8b5cf6, #4ecdff, #f0a63a, #ff5fae, #8b5cf6);
-                            animation: akiSpin 5s linear infinite; opacity:0.95;"></div>
-                <div style="position:relative; width:144px; height:144px; border-radius:50%;
-                            background: radial-gradient(circle, #1c1926 55%, #100e16 100%);
-                            display:flex; align-items:center; justify-content:center;
-                            box-shadow: inset 0 0 0 1px rgba(255,255,255,0.07);">
-                    <img src="data:image/png;base64,{_logo_b64}" width="98"
-                         style="filter: invert(1) drop-shadow(0 0 14px rgba(200,182,255,0.6));" />
-                </div>
-            </div>
-        </div>
-        <style>
-        @keyframes akiSpin {{ to {{ transform: rotate(360deg); }} }}
-        @keyframes akiPulse {{
-            0%, 100% {{ opacity: 0.55; transform: scale(1); }}
-            50% {{ opacity: 0.9; transform: scale(1.1); }}
-        }}
-        </style>
-        """,
-        unsafe_allow_html=True
-    )
-else:
-    st.markdown(
-        "<div style='text-align:center; font-size:88px; margin-bottom:-10px;'>😺</div>",
-        unsafe_allow_html=True
-    )
-
 st.markdown("""
-<div style="text-align:center; margin-top:6px; margin-bottom:1.6rem;">
-    <div class="aki-title">AKI AUDIO</div>
+<div style="text-align:center; margin-top:10px; margin-bottom:0.9rem;">
+    <div class="aki-title">AKI<span class="aki-cat">😺</span>AUDIO</div>
     <div style="font-family:'JetBrains Mono', monospace; font-size:0.72rem; letter-spacing:3px;
                 color:rgba(200,190,220,0.5); margin-top:4px; text-transform:uppercase;">
         Convertidor de tono y velocidad · Listo para Roblox
@@ -276,17 +276,74 @@ st.markdown("""
 <style>
 .aki-title {
     font-family: 'JetBrains Mono', monospace; font-weight:800; font-size:2.3rem;
-    letter-spacing:3px;
+    letter-spacing:2px;
+}
+.aki-title > span:not(.aki-cat),
+.aki-title {
     background: linear-gradient(90deg, #8b5cf6, #4ecdff, #f0a63a, #ff5fae, #8b5cf6);
     background-size: 300% auto;
     -webkit-background-clip:text; -webkit-text-fill-color:transparent;
     background-clip:text;
     animation: akiShimmer 6s linear infinite;
-    filter: drop-shadow(0 0 18px rgba(139,92,246,0.35));
+    filter: drop-shadow(0 0 18px rgba(139,92,246,0.3));
+}
+.aki-cat {
+    -webkit-text-fill-color: initial;
+    background: none;
+    filter: none;
+    display: inline-block;
+    margin: 0 2px;
+    animation: none;
 }
 @keyframes akiShimmer {
     to { background-position: 300% center; }
 }
+@media (prefers-reduced-motion: reduce) {
+    .aki-title { animation: none !important; }
+}
+</style>
+""", unsafe_allow_html=True)
+
+# ----------------------------------------------------------------------------
+# REDES SOCIALES
+# ----------------------------------------------------------------------------
+WHATSAPP_URL = "https://chat.whatsapp.com/DHjoYtBdji35YNExN79nnG"
+ROBLOX_URL = "https://www.roblox.com/join/znagr"
+DISCORD_URL = "https://discord.gg/ZaBDgfjw6"
+
+st.markdown(f"""
+<div class="aki-social-row">
+    <a href="{WHATSAPP_URL}" target="_blank" rel="noopener" class="aki-social aki-social-wa" title="Grupo de WhatsApp">
+        <span class="aki-social-icon">💬</span><span>WhatsApp</span>
+    </a>
+    <a href="{DISCORD_URL}" target="_blank" rel="noopener" class="aki-social aki-social-dc" title="Servidor de Discord">
+        <span class="aki-social-icon">🗨️</span><span>Discord</span>
+    </a>
+    <a href="{ROBLOX_URL}" target="_blank" rel="noopener" class="aki-social aki-social-rb" title="Mi juego de Roblox">
+        <span class="aki-social-icon">🎮</span><span>Roblox</span>
+    </a>
+</div>
+<style>
+.aki-social-row {{
+    display: flex; justify-content: center; gap: 10px; flex-wrap: wrap;
+    margin-bottom: 1.6rem;
+}}
+.aki-social {{
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 7px 14px; border-radius: 999px;
+    font-family: 'Inter', sans-serif; font-size: 0.78rem; font-weight: 600;
+    text-decoration: none; border: 1px solid rgba(255,255,255,0.1);
+    background: rgba(255,255,255,0.04);
+    transition: transform .15s ease, box-shadow .15s ease, border-color .15s ease;
+}}
+.aki-social:hover {{ transform: translateY(-2px); }}
+.aki-social-icon {{ font-size: 1rem; }}
+.aki-social-wa {{ color: #6fe08a; }}
+.aki-social-wa:hover {{ border-color: rgba(111,224,138,0.6); box-shadow: 0 4px 14px rgba(111,224,138,0.25); }}
+.aki-social-dc {{ color: #b3a4ff; }}
+.aki-social-dc:hover {{ border-color: rgba(139,120,255,0.6); box-shadow: 0 4px 14px rgba(139,120,255,0.25); }}
+.aki-social-rb {{ color: #ff9d9d; }}
+.aki-social-rb:hover {{ border-color: rgba(255,120,120,0.6); box-shadow: 0 4px 14px rgba(255,120,120,0.25); }}
 </style>
 """, unsafe_allow_html=True)
 
@@ -346,6 +403,24 @@ if archivo_subido is not None:
             st.session_state.duracion_original = 0
 
 # ----------------------------------------------------------------------------
+# CONSEJOS Y RECOMENDACIONES
+# ----------------------------------------------------------------------------
+with st.expander("📋 Consejos y recomendaciones — léelo antes de subir a Roblox"):
+    st.markdown("""
+- ⏳ **Espera a que la música cargue por completo** antes de tocar los sliders — recién ahí puedes editar el tono y la velocidad.
+- 🎚️ **El nombre del archivo descargado trae la velocidad** que debes poner en el `PlaybackSpeed` de Roblox Studio para que el audio suene normal.
+- 🛠️ **Modo MANUAL** te deja ajustar tono y velocidad por separado si el modo automático no te da el resultado exacto que buscas.
+- ✏️ **Cambia el nombre del archivo antes de subirlo a Roblox** por uno que el filtro de texto acepte — si no, Roblox puede censurarlo o rechazarlo.
+- 🚫 **Evita canciones con lenguaje grosero o contenido explícito** — Roblox puede banear cuentas por subir audio no apto.
+- 👥 **Ten una cuenta secundaria para subir audios**, así evitas arriesgar tu cuenta principal si algún audio es marcado.
+- ©️ **Sube solo música que tengas derecho a usar** — si tiene derechos de autor de terceros, Roblox puede eliminarla o sancionar la cuenta.
+- 💾 **Guarda tu archivo original aparte** antes de convertir, por si luego quieres probar otro ajuste de tono o velocidad.
+- 🧪 **Prueba el audio convertido dentro de Roblox Studio** antes de publicarlo en tu juego, para confirmar que suena como esperas.
+- ⚠️ **Esta página no se hace responsable por baneos o sanciones dentro de Roblox** — el uso del audio convertido es bajo tu propia responsabilidad.
+- 🎮 **Apoya el proyecto**: únete a mi juego de Roblox y a la comunidad de Discord/WhatsApp de arriba — cualquier sugerencia es bienvenida.
+""")
+
+# ----------------------------------------------------------------------------
 # REPRODUCTOR + CONVERSOR (100% client-side)
 # ----------------------------------------------------------------------------
 if st.session_state.audio_data is not None:
@@ -380,7 +455,7 @@ if st.session_state.audio_data is not None:
 <html>
 <head>
 <meta charset="utf-8">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
   * { box-sizing: border-box; }
   body {
@@ -525,9 +600,11 @@ if st.session_state.audio_data is not None:
   .format-group { display: flex; gap: 6px; margin-left: auto; }
   .fmt-btn {
       font-family: 'JetBrains Mono', monospace; font-size: 0.66rem; font-weight: 700;
-      padding: 7px 10px; border-radius: 8px; border: 1px solid var(--line);
-      background: rgba(255,255,255,0.03); color: rgba(220,213,240,0.4); cursor: not-allowed;
+      padding: 7px 12px; border-radius: 8px; border: 1px solid var(--line);
+      background: rgba(255,255,255,0.03); color: rgba(220,213,240,0.55); cursor: pointer;
+      transition: all .15s ease;
   }
+  .fmt-btn:hover { background: rgba(255,255,255,0.07); color: #eae7f5; }
   .fmt-btn.active {
       background: var(--accent-dim); border-color: rgba(139,92,246,0.5); color: #d9c8ff; cursor: default;
   }
@@ -615,10 +692,10 @@ if st.session_state.audio_data is not None:
       <span class="vol-label">VOL</span>
       <input type="range" class="vol-slider" id="volSlider" min="0" max="1" step="0.01" value="1">
       <span class="vol-value" id="volValue">100%</span>
-      <div class="format-group">
-        <button class="fmt-btn">OGG</button>
-        <button class="fmt-btn active">MP3</button>
-        <button class="fmt-btn">WAV</button>
+      <div class="format-group" id="formatGroup">
+        <button class="fmt-btn" data-fmt="mp3" onclick="setFormat('mp3')">MP3</button>
+        <button class="fmt-btn active" data-fmt="ogg" onclick="setFormat('ogg')">OGG</button>
+        <button class="fmt-btn" data-fmt="wav" onclick="setFormat('wav')">WAV</button>
       </div>
     </div>
 
@@ -632,6 +709,7 @@ if st.session_state.audio_data is not None:
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/lamejs@1.2.1/lame.min.js" defer></script>
+<script src="https://unpkg.com/wasm-media-encoders@0.7.0/dist/umd/WasmMediaEncoder.min.js" defer></script>
 <script>
 const VALUES = __VALORES_JS__;
 const DURACION_ORIGINAL = __DURACION_ORIGINAL__;
@@ -641,10 +719,18 @@ const NOMBRE_BASE = "__NOMBRE_BASE__";
 const ORIGINAL_AUDIO_SRC = "data:audio/mp3;base64," + AUDIO_B64;
 
 let mode = "auto";
+let selectedFormat = "ogg";
 let decodedBuffer = null;
 let manualPreviewUrl = null;
 let manualPreviewDirty = true;
 let manualDebounceTimer = null;
+
+function setFormat(fmt) {
+    selectedFormat = fmt;
+    document.querySelectorAll("#formatGroup .fmt-btn").forEach((b) => {
+        b.classList.toggle("active", b.dataset.fmt === fmt);
+    });
+}
 
 const audioHidden = document.getElementById("audioHidden");
 audioHidden.preservesPitch = false;
@@ -882,6 +968,97 @@ function encodeMP3(audioBuffer, kbps) {
     return new Blob(mp3Data, { type: "audio/mp3" });
 }
 
+// ---------------- Codificación WAV (PCM 16-bit, sin librería externa) ----------------
+
+function encodeWAV(audioBuffer) {
+    const numChannels = audioBuffer.numberOfChannels;
+    const sampleRate = audioBuffer.sampleRate;
+    const numFrames = audioBuffer.length;
+    const bytesPerSample = 2;
+    const blockAlign = numChannels * bytesPerSample;
+    const dataSize = numFrames * blockAlign;
+
+    const buffer = new ArrayBuffer(44 + dataSize);
+    const view = new DataView(buffer);
+
+    const writeStr = (offset, str) => {
+        for (let i = 0; i < str.length; i++) view.setUint8(offset + i, str.charCodeAt(i));
+    };
+
+    writeStr(0, "RIFF");
+    view.setUint32(4, 36 + dataSize, true);
+    writeStr(8, "WAVE");
+    writeStr(12, "fmt ");
+    view.setUint32(16, 16, true);
+    view.setUint16(20, 1, true); // PCM
+    view.setUint16(22, numChannels, true);
+    view.setUint32(24, sampleRate, true);
+    view.setUint32(28, sampleRate * blockAlign, true);
+    view.setUint16(32, blockAlign, true);
+    view.setUint16(34, 16, true);
+    writeStr(36, "data");
+    view.setUint32(40, dataSize, true);
+
+    const channels = [];
+    for (let c = 0; c < numChannels; c++) channels.push(audioBuffer.getChannelData(c));
+
+    let offset = 44;
+    for (let i = 0; i < numFrames; i++) {
+        for (let c = 0; c < numChannels; c++) {
+            let s = Math.max(-1, Math.min(1, channels[c][i]));
+            s = s < 0 ? s * 0x8000 : s * 0x7FFF;
+            view.setInt16(offset, s, true);
+            offset += 2;
+        }
+    }
+
+    return new Blob([buffer], { type: "audio/wav" });
+}
+
+// ---------------- Codificación OGG Vorbis (wasm-media-encoders, vía CDN) ----------------
+
+async function encodeOGG(audioBuffer) {
+    if (typeof WasmMediaEncoder === "undefined") {
+        throw new Error("El codificador de OGG todavía no cargó, intenta de nuevo en un segundo.");
+    }
+    const numChannels = audioBuffer.numberOfChannels;
+    const sampleRate = audioBuffer.sampleRate;
+    const oggEncoder = await WasmMediaEncoder.createOggEncoder();
+    oggEncoder.configure({ sampleRate: sampleRate, channels: numChannels, vbrQuality: 6 });
+
+    const blockSize = 4096;
+    const channels = [];
+    for (let c = 0; c < numChannels; c++) channels.push(audioBuffer.getChannelData(c));
+    const chunks = [];
+
+    for (let i = 0; i < channels[0].length; i += blockSize) {
+        const frame = channels.map((ch) => ch.subarray(i, i + blockSize));
+        const out = oggEncoder.encode(frame);
+        if (out && out.length) chunks.push(out.slice());
+    }
+    const finalOut = oggEncoder.finalize();
+    if (finalOut && finalOut.length) chunks.push(finalOut.slice());
+
+    return new Blob(chunks, { type: "audio/ogg" });
+}
+
+async function encodeByFormat(audioBufferLike, fmt) {
+    if (fmt === "wav") {
+        return { blob: encodeWAV(audioBufferLike), ext: "wav" };
+    }
+    if (fmt === "ogg") {
+        try {
+            return { blob: await encodeOGG(audioBufferLike), ext: "ogg" };
+        } catch (e) {
+            console.error("OGG encoder falló, usando MP3 como respaldo:", e);
+            document.getElementById("inlineAlert").innerHTML =
+                '<div class="inline-alert warn">⚠ No se pudo generar el OGG, se descargó en MP3 en su lugar.</div>';
+            return { blob: encodeMP3(audioBufferLike, 192), ext: "mp3" };
+        }
+    }
+    return { blob: encodeMP3(audioBufferLike, 192), ext: "mp3" };
+}
+
 const MANUAL_PREVIEW_SECONDS = 10;
 
 async function previewManual(isRefresh) {
@@ -1001,10 +1178,10 @@ async function convertir() {
             robloxTexto = "Este audio ya tiene el tono y la velocidad aplicados. En Roblox Studio deja <b>PlaybackSpeed = 1</b>.";
         }
 
-        setTimeout(() => {
-            const mp3Blob = encodeMP3(renderedBufferLike, 192);
-            const url = URL.createObjectURL(mp3Blob);
-            const nombreFinal = NOMBRE_BASE + "_" + sufijo + ".mp3";
+        setTimeout(async () => {
+            const { blob: outBlob, ext } = await encodeByFormat(renderedBufferLike, selectedFormat);
+            const url = URL.createObjectURL(outBlob);
+            const nombreFinal = NOMBRE_BASE + "_" + sufijo + "." + ext;
             const durFinal = renderedBufferLike.length / renderedBufferLike.sampleRate;
 
             // Descarga automática apenas el archivo está listo (sin exigir un segundo clic)
