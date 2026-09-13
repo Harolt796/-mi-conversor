@@ -1,7 +1,6 @@
 services:
   - type: web
-    name: mi-conversor-neko
-    runtime: python
-    buildCommand: apt-get update && apt-get install -y ffmpeg && pip install -r requirements.txt
-    startCommand: streamlit run app.py --server.port $PORT --server.address 0.0.0.0
+    name: -mi-conversor
+    env: docker
     plan: free
+    dockerfilePath: ./Dockerfile
