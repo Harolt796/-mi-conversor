@@ -16,18 +16,19 @@ st.set_page_config(
 # ===== ESTILOS CSS =====
 st.markdown("""
     <style>
-    /* Fondo: blanco centro, plomo a los bordes (más pronunciado) */
+    /* Fondo con degradado más pronunciado */
     .stApp {
         background: radial-gradient(circle at center, 
             #ffffff 0%, 
-            #e8e8e8 15%, 
-            #a0a0a0 40%, 
-            #3a3a3a 70%, 
+            #f0f0f0 10%,
+            #c0c0c0 30%, 
+            #707070 55%, 
+            #303030 80%,
             #0a0a0a 100%);
         background-attachment: fixed;
     }
     
-    /* TODAS las letras blancas con borde negro para que se lean */
+    /* Letras blancas con borde negro */
     h1, h2, h3, p, label, .stMarkdown, .stCaption, span, div {
         color: #ffffff !important;
         text-shadow: 
@@ -35,17 +36,15 @@ st.markdown("""
              1px -1px 0 #000,
             -1px  1px 0 #000,
              1px  1px 0 #000,
-             2px  2px 4px rgba(0,0,0,0.8) !important;
+             2px  2px 4px rgba(0,0,0,0.9) !important;
     }
     
-    /* Título principal más grande */
     h1 {
         font-family: 'Arial Black', sans-serif;
         text-align: center;
         font-size: 2.5em !important;
     }
     
-    /* Caja de subida de archivos */
     .stFileUploader {
         background-color: rgba(26, 26, 26, 0.9);
         border: 2px dashed #8b5cf6;
@@ -54,7 +53,6 @@ st.markdown("""
         backdrop-filter: blur(5px);
     }
     
-    /* Botones */
     .stButton > button {
         background-color: #8b5cf6;
         color: white;
@@ -69,12 +67,10 @@ st.markdown("""
         background-color: #7c3aed;
     }
     
-    /* Slider */
     .stSlider > div > div > div > div {
         background-color: #8b5cf6;
     }
     
-    /* Caja de métricas */
     .stMetric {
         background-color: rgba(26, 26, 26, 0.9);
         border-radius: 10px;
@@ -82,7 +78,6 @@ st.markdown("""
         border: 2px solid #8b5cf6;
     }
     
-    /* Reproductor de audio */
     audio { width: 100%; border-radius: 10px; }
     </style>
 """, unsafe_allow_html=True)
@@ -104,7 +99,10 @@ MAX_DURATION_SEC = 7 * 60
 DEFAULT_PITCH = 0.794
 
 def cambiar_pitch(audio, factor):
-    """Cambia pitch y velocidad al mismo tiempo (efecto vinilo)."""
+    """Cambia pitch y velocidad al mismo tiempo (efecto vinilo).
+    factor < 1 → suena más agudo y rápido (ardilla)
+    factor > 1 → suena más grave y lento
+    """
     nuevos_frames = int(audio.frame_rate * factor)
     if nuevos_frames < 1000:
         raise ValueError("El factor de pitch es demasiado bajo.")
@@ -124,7 +122,6 @@ def ajustar_duracion(audio, max_seg=MAX_DURATION_SEC):
 archivo_subido = st.file_uploader("🎵 Arrastra tu canción aquí", type=["mp3", "wav", "ogg", "flac"])
 
 if archivo_subido is not None:
-    # Guardamos temporalmente el archivo
     temp_path = f"/tmp/{archivo_subido.name}"
     with open(temp_path, "wb") as f:
         f.write(archivo_subido.getbuffer())
@@ -133,9 +130,9 @@ if archivo_subido is not None:
     audio_b64 = base64.b64encode(audio_bytes).decode()
     
     st.markdown("### 🎧 Paso 1: Escucha cómo quedará la canción")
-    st.caption("Mueve el slider mientras suena para escuchar exactamente cómo sonará después de la conversión. Ese es el audio que subirás a Roblox.")
+    st.caption("Mueve el slider mientras suena. **Pitch bajo = rápido y agudo** (ardilla). **Pitch alto = lento y grave**.")
     
-    # ===== REPRODUCTOR EN VIVO CON VELOCIDAD =====
+    # ===== REPRODUCTOR EN VIVO (LÓGICA INVERTIDA) =====
     html_player = f"""
     <!DOCTYPE html>
     <html>
@@ -209,28 +206,31 @@ if archivo_subido is not None:
             
             <div class="controls">
                 <label>🎚️ Pitch:</label>
-                <input type="range" id="speed" min="0.5" max="1.5" step="0.001" value="0.794">
-                <span class="value" id="speedValue">0.794</span>
+                <input type="range" id="pitch" min="0.1" max="2.0" step="0.001" value="0.794">
+                <span class="value" id="pitchValue">0.794</span>
             </div>
             
             <div class="info">
-                💡 Mueve la barra mientras suena. El valor <b>0.794</b> es el estándar de NekoDJ.
-                <br>Ese mismo número es el <b>effectSpeed</b> que pondrás en Roblox Studio.
+                💡 <b>Pitch bajo (0.4)</b> = rápido y agudo (ardilla). <b>Pitch alto (1.5)</b> = lento y grave.
+                <br>Ese número es el <b>effectSpeed</b> que pondrás en Roblox Studio.
             </div>
         </div>
         
         <script>
             const audio = document.getElementById('audio');
-            const speed = document.getElementById('speed');
-            const speedValue = document.getElementById('speedValue');
+            const pitch = document.getElementById('pitch');
+            const pitchValue = document.getElementById('pitchValue');
             
-            audio.playbackRate = parseFloat(speed.value);
+            // FUNCIÓN CLAVE: playbackRate = 1 / pitch
+            function applyPitch() {{
+                const pitchVal = parseFloat(pitch.value);
+                // Invertir: pitch bajo = playbackRate alto (rápido)
+                audio.playbackRate = 1 / pitchVal;
+                pitchValue.textContent = pitchVal.toFixed(3);
+            }}
             
-            speed.addEventListener('input', function() {{
-                const rate = parseFloat(this.value);
-                audio.playbackRate = rate;
-                speedValue.textContent = rate.toFixed(3);
-            }});
+            applyPitch();
+            pitch.addEventListener('input', applyPitch);
         </script>
     </body>
     </html>
@@ -242,22 +242,15 @@ if archivo_subido is not None:
     st.markdown("### 🎚️ Paso 2: Confirma el pitch y convierte")
     st.caption("Cuando ya hayas escuchado cómo queda, confirma el número y presiona Convertir.")
     
-    pitch_usuario = st.slider("Pitch final para exportar", 0.5, 1.5, DEFAULT_PITCH, 0.001)
+    pitch_usuario = st.slider("Pitch final para exportar", 0.1, 2.0, DEFAULT_PITCH, 0.001)
     
     if st.button("🔄 Convertir y descargar"):
         with st.spinner("Procesando audio completo..."):
             try:
                 audio = AudioSegment.from_file(archivo_subido)
-                
-                # Aplicar pitch shift (queda sonando agudo/rápido)
                 audio_pitch = cambiar_pitch(audio, pitch_usuario)
-                
-                # Ajustar si supera 7 minutos
                 audio_final, speed_factor = ajustar_duracion(audio_pitch, MAX_DURATION_SEC)
-                
-                # El effectSpeed es el factor total
                 effect_speed = round(pitch_usuario * speed_factor, 4)
-                
                 output_buffer = audio_final.export(format="mp3", bitrate="192k")
                 
                 st.success("¡Conversión exitosa! 🎉")
