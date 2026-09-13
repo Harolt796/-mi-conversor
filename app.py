@@ -16,43 +16,47 @@ st.set_page_config(
 # ===== ESTILOS CSS =====
 st.markdown("""
     <style>
-    /* Fondo con degradado más pronunciado */
+    /* Fondo con degradado pronunciado: blanco centro -> plomo -> negro bordes */
     .stApp {
         background: radial-gradient(circle at center, 
             #ffffff 0%, 
-            #f0f0f0 10%,
-            #c0c0c0 30%, 
-            #707070 55%, 
-            #303030 80%,
+            #f0f0f0 8%,
+            #d0d0d0 20%,
+            #909090 40%, 
+            #505050 60%, 
+            #282828 80%,
             #0a0a0a 100%);
         background-attachment: fixed;
     }
     
-    /* Letras blancas con borde negro */
-    h1, h2, h3, p, label, .stMarkdown, .stCaption, span, div {
+    /* TODAS las letras blancas con borde negro para que se lean sobre fondo blanco */
+    h1, h2, h3, h4, p, label, .stMarkdown, .stCaption, span, div, li {
         color: #ffffff !important;
         text-shadow: 
             -1px -1px 0 #000,  
              1px -1px 0 #000,
             -1px  1px 0 #000,
              1px  1px 0 #000,
-             2px  2px 4px rgba(0,0,0,0.9) !important;
+             0px  0px 6px rgba(0,0,0,0.9) !important;
     }
     
+    /* Título principal */
     h1 {
         font-family: 'Arial Black', sans-serif;
         text-align: center;
         font-size: 2.5em !important;
     }
     
+    /* Caja de subida de archivos */
     .stFileUploader {
-        background-color: rgba(26, 26, 26, 0.9);
+        background-color: rgba(26, 26, 26, 0.92);
         border: 2px dashed #8b5cf6;
         border-radius: 15px;
         padding: 20px;
         backdrop-filter: blur(5px);
     }
     
+    /* Botones */
     .stButton > button {
         background-color: #8b5cf6;
         color: white;
@@ -67,18 +71,28 @@ st.markdown("""
         background-color: #7c3aed;
     }
     
+    /* Slider */
     .stSlider > div > div > div > div {
         background-color: #8b5cf6;
     }
     
+    /* Caja de métricas */
     .stMetric {
-        background-color: rgba(26, 26, 26, 0.9);
+        background-color: rgba(26, 26, 26, 0.92);
         border-radius: 10px;
         padding: 15px;
         border: 2px solid #8b5cf6;
     }
     
+    /* Reproductor de audio */
     audio { width: 100%; border-radius: 10px; }
+    
+    /* Mensaje de éxito/info */
+    .stAlert {
+        background-color: rgba(26, 26, 26, 0.92);
+        border-radius: 10px;
+        border: 2px solid #8b5cf6;
+    }
     </style>
 """, unsafe_allow_html=True)
 
@@ -99,7 +113,7 @@ MAX_DURATION_SEC = 7 * 60
 DEFAULT_PITCH = 0.794
 
 def cambiar_pitch(audio, factor):
-    """Cambia pitch y velocidad al mismo tiempo (efecto vinilo).
+    """Cambia pitch y velocidad al mismo tiempo (efecto vinilo, como Audacity).
     factor < 1 → suena más agudo y rápido (ardilla)
     factor > 1 → suena más grave y lento
     """
@@ -130,9 +144,9 @@ if archivo_subido is not None:
     audio_b64 = base64.b64encode(audio_bytes).decode()
     
     st.markdown("### 🎧 Paso 1: Escucha cómo quedará la canción")
-    st.caption("Mueve el slider mientras suena. **Pitch bajo = rápido y agudo** (ardilla). **Pitch alto = lento y grave**.")
+    st.caption("Mueve el slider mientras suena. **Pitch bajo (0.4) = rápido y agudo (ardilla).** **Pitch alto (1.5) = lento y grave.**")
     
-    # ===== REPRODUCTOR EN VIVO (LÓGICA INVERTIDA) =====
+    # ===== REPRODUCTOR EN VIVO CON VELOCIDAD Y TONO =====
     html_player = f"""
     <!DOCTYPE html>
     <html>
@@ -206,12 +220,12 @@ if archivo_subido is not None:
             
             <div class="controls">
                 <label>🎚️ Pitch:</label>
-                <input type="range" id="pitch" min="0.1" max="2.0" step="0.001" value="0.794">
+                <input type="range" id="pitch" min="0.05" max="2.0" step="0.001" value="0.794">
                 <span class="value" id="pitchValue">0.794</span>
             </div>
             
             <div class="info">
-                💡 <b>Pitch bajo (0.4)</b> = rápido y agudo (ardilla). <b>Pitch alto (1.5)</b> = lento y grave.
+                💡 <b>Pitch bajo (0.4)</b> = rápido y agudo (voz de ardilla 🐿️). <b>Pitch alto (1.5)</b> = lento y grave (voz de ogro 👹).
                 <br>Ese número es el <b>effectSpeed</b> que pondrás en Roblox Studio.
             </div>
         </div>
@@ -221,10 +235,15 @@ if archivo_subido is not None:
             const pitch = document.getElementById('pitch');
             const pitchValue = document.getElementById('pitchValue');
             
-            // FUNCIÓN CLAVE: playbackRate = 1 / pitch
+            // 🔑 CLAVE: Desactivar preservesPitch para que cambie VELOCIDAD + TONO juntos (efecto Audacity)
+            audio.preservesPitch = false;
+            audio.mozPreservesPitch = false;
+            audio.webkitPreservesPitch = false;
+            audio.msPreservesPitch = false;
+            
             function applyPitch() {{
                 const pitchVal = parseFloat(pitch.value);
-                // Invertir: pitch bajo = playbackRate alto (rápido)
+                // Invertir: pitch bajo = playbackRate alto (rápido y agudo)
                 audio.playbackRate = 1 / pitchVal;
                 pitchValue.textContent = pitchVal.toFixed(3);
             }}
@@ -236,13 +255,13 @@ if archivo_subido is not None:
     </html>
     """
     
-    components.html(html_player, height=250)
+    components.html(html_player, height=270)
     
     st.markdown("---")
     st.markdown("### 🎚️ Paso 2: Confirma el pitch y convierte")
     st.caption("Cuando ya hayas escuchado cómo queda, confirma el número y presiona Convertir.")
     
-    pitch_usuario = st.slider("Pitch final para exportar", 0.1, 2.0, DEFAULT_PITCH, 0.001)
+    pitch_usuario = st.slider("Pitch final para exportar", 0.05, 2.0, DEFAULT_PITCH, 0.001)
     
     if st.button("🔄 Convertir y descargar"):
         with st.spinner("Procesando audio completo..."):
