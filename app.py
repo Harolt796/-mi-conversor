@@ -7,7 +7,7 @@ import base64
 import mutagen
 
 # ----------------------------------------------------------------------------
-# CONFIGURACIÓN DE LA PÁGINA
+# CONFIGURACIÓN
 # ----------------------------------------------------------------------------
 st.set_page_config(
     page_title="AKI 😺 Audio Converter",
@@ -17,7 +17,7 @@ st.set_page_config(
 )
 
 # ----------------------------------------------------------------------------
-# LOGO EN BASE64 (marca de agua de fondo)
+# LOGO EN BASE64
 # ----------------------------------------------------------------------------
 _logo_b64 = None
 try:
@@ -51,22 +51,10 @@ if _logo_b64:
 CSS_TEMPLATE = """
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700;800&display=swap');
-
 html, body, [class*="css"] { font-family: 'Inter', sans-serif; }
-
-[data-testid="stHeader"], [data-testid="stToolbar"], [data-testid="stDecoration"],
-footer, #MainMenu { display: none !important; }
-
-.stApp {
-    background: #07060a;
-    position: relative;
-    overflow-x: hidden;
-    isolation: isolate;
-    min-height: 100vh;
-}
-
+[data-testid="stHeader"], [data-testid="stToolbar"], [data-testid="stDecoration"], footer, #MainMenu { display: none !important; }
+.stApp { background: #07060a; position: relative; overflow-x: hidden; isolation: isolate; min-height: 100vh; }
 __LOGO_BG_CSS__
-
 .stApp::after {
     content: ""; position: absolute; inset: -6%; z-index: 0; pointer-events: none;
     background:
@@ -77,41 +65,28 @@ __LOGO_BG_CSS__
     animation: bgBreathe 14s ease-in-out infinite alternate;
     transform-origin: center;
 }
-
 @keyframes bgBreathe { 0% { transform: scale(1) translate(0, 0); } 100% { transform: scale(1.06) translate(-1%, 1%); } }
-
 .block-container { padding-top: 2.2rem; max-width: 680px; position: relative; z-index: 1; }
-
 [data-testid="stFileUploader"] {
     position: relative; border: 1.5px dashed rgba(168, 130, 255, 0.4); border-radius: 20px;
     background: linear-gradient(160deg, rgba(139,92,246,0.06), rgba(255,255,255,0.015));
     backdrop-filter: blur(6px); padding: 2.4rem 1.4rem; min-height: 168px;
     transition: border-color .2s ease, background .2s ease; animation: dashFlow 5s ease-in-out infinite;
 }
-
 @keyframes dashFlow { 0%, 100% { box-shadow: 0 0 0 0 rgba(139,92,246,0); border-color: rgba(168,130,255,0.4); } 50% { box-shadow: 0 0 26px 0 rgba(139,92,246,0.16); border-color: rgba(168,130,255,0.7); } }
-
 [data-testid="stFileUploader"]:hover { border-color: rgba(168, 130, 255, 0.85); background: linear-gradient(160deg, rgba(168,130,255,0.10), rgba(255,255,255,0.015)); }
-
 [data-testid="stFileUploader"] section { background: transparent; border: none; }
-
-/* Texto del dropzone en español (solo audio) */
 [data-testid="stFileUploaderDropzoneInstructions"] { font-size: 0 !important; display: flex !important; flex-direction: column; align-items: center; gap: 4px; }
 [data-testid="stFileUploaderDropzoneInstructions"] svg { display: none; }
 [data-testid="stFileUploaderDropzoneInstructions"]::before { content: "🎵"; font-size: 2.4rem; line-height: 1; display: block; margin-bottom: 4px; filter: drop-shadow(0 0 10px rgba(139,92,246,0.5)); }
 [data-testid="stFileUploaderDropzoneInstructions"]::after { content: "Arrastra tu canción aquí, o haz clic para buscarla\\A MP3 · WAV · OGG · FLAC · M4A · AAC"; white-space: pre-line; font-family: 'Inter', sans-serif; font-size: 0.85rem; font-weight: 500; line-height: 1.6; text-align: center; color: rgba(235, 230, 245, 0.8); }
-
 [data-testid="stFileUploader"] section button { font-size: 0 !important; background: linear-gradient(135deg, #8b5cf6, #6d3ff0) !important; color: white !important; border: none !important; border-radius: 10px !important; padding: 0.5rem 1.1rem !important; margin-top: 14px !important; }
 [data-testid="stFileUploader"] section button::after { content: "Elegir archivo"; font-size: 0.8rem; font-weight: 600; font-family: 'Inter', sans-serif; }
-
 iframe { position: relative; z-index: 1; }
-
 @media (max-width: 600px) { .stApp::before, .stApp::after { animation-duration: 20s; } [data-testid="stFileUploader"] { animation: none; backdrop-filter: none; padding: 1.8rem 1rem; min-height: 130px; } }
 @media (prefers-reduced-motion: reduce) { .stApp::before, .stApp::after, [data-testid="stFileUploader"] { animation: none !important; } }
 </style>
 """
-
-# Inyectar el CSS con la marca de agua del logo
 st.markdown(CSS_TEMPLATE.replace("__LOGO_BG_CSS__", _logo_bg_css), unsafe_allow_html=True)
 
 # ----------------------------------------------------------------------------
@@ -137,18 +112,11 @@ st.markdown("""
 WHATSAPP_URL = "https://chat.whatsapp.com/DHjoYtBdji35YNExN79nnG"
 ROBLOX_URL = "https://www.roblox.com/join/znagr"
 DISCORD_URL = "https://discord.gg/ZaBDgfjw6"
-
 st.markdown(f"""
 <div class="aki-social-row">
-    <a href="{WHATSAPP_URL}" target="_blank" rel="noopener" class="aki-social aki-social-wa" title="Grupo de WhatsApp">
-        <span class="aki-social-icon">💬</span><span>WhatsApp</span>
-    </a>
-    <a href="{DISCORD_URL}" target="_blank" rel="noopener" class="aki-social aki-social-dc" title="Servidor de Discord">
-        <span class="aki-social-icon">🗨️</span><span>Discord</span>
-    </a>
-    <a href="{ROBLOX_URL}" target="_blank" rel="noopener" class="aki-social aki-social-rb" title="Mi juego de Roblox">
-        <span class="aki-social-icon">🎮</span><span>Roblox</span>
-    </a>
+    <a href="{WHATSAPP_URL}" target="_blank" rel="noopener" class="aki-social aki-social-wa" title="Grupo de WhatsApp"><span class="aki-social-icon">💬</span><span>WhatsApp</span></a>
+    <a href="{DISCORD_URL}" target="_blank" rel="noopener" class="aki-social aki-social-dc" title="Servidor de Discord"><span class="aki-social-icon">🗨️</span><span>Discord</span></a>
+    <a href="{ROBLOX_URL}" target="_blank" rel="noopener" class="aki-social aki-social-rb" title="Mi juego de Roblox"><span class="aki-social-icon">🎮</span><span>Roblox</span></a>
 </div>
 <style>
 .aki-social-row {{ display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; margin-bottom: 1.6rem; }}
@@ -165,7 +133,7 @@ st.markdown(f"""
 """, unsafe_allow_html=True)
 
 # ----------------------------------------------------------------------------
-# CONFIGURACIÓN DE VALORES DE PITCH (patrón cuarto de tono 2^(n/24))
+# PITCH
 # ----------------------------------------------------------------------------
 MAX_DURATION_SEC = 7 * 60
 DEFAULT_N = -29
@@ -190,23 +158,16 @@ def format_duracion(seg):
     return f"{m}:{s:02d}"
 
 # ----------------------------------------------------------------------------
-# ESTADO PERSISTENTE
+# ESTADO
 # ----------------------------------------------------------------------------
-if "audio_data" not in st.session_state:
-    st.session_state.audio_data = None
-if "audio_name" not in st.session_state:
-    st.session_state.audio_name = None
-if "duracion_original" not in st.session_state:
-    st.session_state.duracion_original = 0
+if "audio_data" not in st.session_state: st.session_state.audio_data = None
+if "audio_name" not in st.session_state: st.session_state.audio_name = None
+if "duracion_original" not in st.session_state: st.session_state.duracion_original = 0
 
 # ----------------------------------------------------------------------------
-# SUBIDA DE ARCHIVO (SOLO AUDIO COMPATIBLE)
+# SUBIDA
 # ----------------------------------------------------------------------------
-archivo_subido = st.file_uploader(
-    " ",
-    type=["mp3", "wav", "ogg", "flac", "m4a", "aac", "opus"],
-    label_visibility="collapsed"
-)
+archivo_subido = st.file_uploader(" ", type=["mp3", "wav", "ogg", "flac", "m4a", "aac", "opus"], label_visibility="collapsed")
 
 if archivo_subido is not None:
     if st.session_state.audio_name != archivo_subido.name:
@@ -226,6 +187,7 @@ TIPS = [
     "El nombre del archivo descargado trae la velocidad que debes poner en PlaybackSpeed de Roblox Studio.",
     "El modo MANUAL te deja ajustar tono y velocidad por separado.",
     "Usa la función de RECORTE para eliminar anuncios o partes que no quieras.",
+    "Haz clic sobre la onda de sonido para saltar a esa posición exacta.",
     "Cambia el nombre del archivo antes de subirlo a Roblox por uno que el filtro de texto acepte.",
     "Evita canciones con lenguaje grosero o contenido explícito: Roblox puede banear cuentas.",
     "Ten una cuenta secundaria para subir audios y no arriesgar tu cuenta principal.",
@@ -237,7 +199,7 @@ TIPS = [
 ]
 
 # ----------------------------------------------------------------------------
-# REPRODUCTOR + CONVERSOR
+# REPRODUCTOR
 # ----------------------------------------------------------------------------
 if st.session_state.audio_data is not None:
     _loading_slot = st.empty()
@@ -271,6 +233,7 @@ if st.session_state.audio_data is not None:
       --accent: #8b5cf6; --accent-dim: rgba(139, 92, 246, 0.18); --accent-strong: #a882ff;
       --manual: #f0a63a; --manual-dim: rgba(240, 166, 58, 0.16); --danger: #ef4444; --ok: #22c55e;
       --line: rgba(255,255,255,0.08); --panel: rgba(255,255,255,0.035);
+      --playhead: #f0a63a;
   }
   .container { padding: 10px 4px 14px 4px; }
   .card-halo {
@@ -323,14 +286,38 @@ if st.session_state.audio_data is not None:
   .convert-btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
   #audioHidden { display: none; }
 
-  /* ========== PANEL DE RECORTE MEJORADO ========== */
+  /* ============ PANEL DE RECORTE ============ */
   #trimPanel { margin-top: 16px; padding: 16px; background: rgba(255,255,255,0.03); border: 1px solid var(--line); border-radius: 14px; display: none; }
+
+  /* Contenedor del waveform con playhead */
   #waveformContainer {
       width: 100%; height: 110px; background: #0a0a0f; border-radius: 8px;
       position: relative; overflow: hidden; margin-bottom: 12px;
       border: 1px solid rgba(139,92,246,0.2);
+      cursor: crosshair;
   }
   #waveformCanvas { width: 100%; height: 100%; display: block; }
+
+  /* Barra de progreso debajo del waveform */
+  .progress-row {
+      display: flex; align-items: center; gap: 10px; margin-bottom: 12px;
+      background: rgba(0,0,0,0.4); padding: 8px 12px; border-radius: 10px;
+      border: 1px solid var(--line);
+  }
+  .progress-bar-mini {
+      flex: 1; height: 6px; background: rgba(255,255,255,0.08); border-radius: 3px;
+      position: relative; cursor: pointer; overflow: hidden;
+  }
+  .progress-bar-fill {
+      height: 100%; width: 0%; background: linear-gradient(90deg, #7c4dff, #f0a63a);
+      border-radius: 3px; transition: width 0.05s linear;
+  }
+  .progress-time {
+      font-family: 'JetBrains Mono', monospace; font-size: 0.72rem;
+      color: rgba(220,213,240,0.9); min-width: 110px; text-align: center;
+  }
+  .progress-time .current { color: var(--playhead); font-weight: 700; }
+  .progress-time .total { color: rgba(220,213,240,0.5); }
 
   .trim-controls { display: flex; align-items: center; gap: 10px; margin-top: 12px; flex-wrap: wrap; }
   .trim-time {
@@ -339,6 +326,8 @@ if st.session_state.audio_data is not None:
       padding: 6px 10px; border-radius: 6px; border: 1px solid var(--line);
       min-width: 84px; text-align: center;
   }
+  .trim-time.start { border-color: rgba(139,92,246,0.5); color: #d9c8ff; }
+  .trim-time.end { border-color: rgba(240,166,58,0.5); color: #ffcf8a; }
   .trim-btn {
       font-family: 'Inter', sans-serif; font-weight: 600; font-size: 0.75rem;
       padding: 8px 14px; border-radius: 8px; border: 1px solid var(--line);
@@ -349,61 +338,51 @@ if st.session_state.audio_data is not None:
   .trim-btn.primary { background: linear-gradient(135deg, #a882ff, #7c4dff); border-color: transparent; color: white; }
   .trim-btn.primary:hover { background: linear-gradient(135deg, #c4b5fd, #8b5cf6); box-shadow: 0 0 16px rgba(139,92,246,0.6); }
 
-  /* 🔑 Handles que se mueven correctamente */
-  .handle {
+  /* Playhead: línea naranja que muestra la posición actual */
+  .playhead {
       position: absolute;
       top: 0;
-      width: 16px;
+      width: 2px;
       height: 100%;
+      background: var(--playhead);
+      z-index: 15;
+      pointer-events: none;
+      box-shadow: 0 0 10px rgba(240,166,58,0.9), 0 0 3px rgba(240,166,58,1);
+      transform: translateX(-50%);
+  }
+  .playhead::before {
+      content: "";
+      position: absolute;
+      top: 0; left: 50%;
+      transform: translateX(-50%);
+      width: 10px; height: 10px;
+      background: var(--playhead);
+      clip-path: polygon(50% 100%, 0 0, 100% 0);
+      box-shadow: 0 0 8px rgba(240,166,58,0.9);
+  }
+
+  /* Handles del recorte */
+  .handle {
+      position: absolute; top: 0; width: 16px; height: 100%;
       background: linear-gradient(180deg, #a882ff, #7c4dff);
-      cursor: ew-resize;
-      z-index: 20;
-      display: flex;
-      align-items: center;
-      justify-content: center;
+      cursor: ew-resize; z-index: 20;
+      display: flex; align-items: center; justify-content: center;
       transform: translateX(-50%);
       box-shadow: 0 0 10px rgba(139,92,246,0.7);
       transition: box-shadow .15s ease, background .15s ease;
-      touch-action: none;
-      user-select: none;
-      -webkit-user-select: none;
+      touch-action: none; user-select: none; -webkit-user-select: none;
   }
-  .handle::after {
-      content: "";
-      width: 2px;
-      height: 55%;
-      background: rgba(255,255,255,0.85);
-      border-radius: 1px;
-      box-shadow: 0 0 4px rgba(255,255,255,0.7);
-  }
-  /* Zona invisible extra para agarrar más fácil */
-  .handle::before {
-      content: "";
-      position: absolute;
-      top: 0; bottom: 0;
-      left: -12px; right: -12px;
-      z-index: -1;
-  }
-  .handle:hover {
-      background: linear-gradient(180deg, #c4b5fd, #8b5cf6);
-      box-shadow: 0 0 18px rgba(168,130,255,1);
-  }
-  .handle.dragging {
-      background: linear-gradient(180deg, #c4b5fd, #8b5cf6);
-      box-shadow: 0 0 22px rgba(168,130,255,1);
-  }
-  .handle.left { border-radius: 4px; }
-  .handle.right { border-radius: 4px; }
+  .handle::after { content: ""; width: 2px; height: 55%; background: rgba(255,255,255,0.85); border-radius: 1px; box-shadow: 0 0 4px rgba(255,255,255,0.7); }
+  .handle::before { content: ""; position: absolute; top: 0; bottom: 0; left: -12px; right: -12px; z-index: -1; }
+  .handle:hover, .handle.dragging { background: linear-gradient(180deg, #c4b5fd, #8b5cf6); box-shadow: 0 0 18px rgba(168,130,255,1); }
+  .handle.left, .handle.right { border-radius: 4px; }
 
   .selection {
-      position: absolute;
-      top: 0;
-      height: 100%;
+      position: absolute; top: 0; height: 100%;
       background: rgba(139,92,246,0.22);
       border-top: 2px solid var(--accent);
       border-bottom: 2px solid var(--accent);
-      z-index: 5;
-      pointer-events: none;
+      z-index: 5; pointer-events: none;
   }
 
   .result-section { margin-top: 14px; }
@@ -442,14 +421,27 @@ if st.session_state.audio_data is not None:
       <div id="waveformContainer">
         <canvas id="waveformCanvas"></canvas>
         <div class="selection" id="selection"></div>
+        <div class="playhead" id="playhead" style="left: 0%;"></div>
         <div class="handle left" id="handleLeft"></div>
         <div class="handle right" id="handleRight"></div>
       </div>
+
+      <!-- Barra de progreso con tiempo actual / total -->
+      <div class="progress-row">
+        <div class="progress-bar-mini" id="progressBarMini" onclick="seekFromProgressBar(event)">
+          <div class="progress-bar-fill" id="progressBarFill"></div>
+        </div>
+        <div class="progress-time">
+          <span class="current" id="currentTime">0:00.000</span>
+          <span class="total"> / <span id="totalTime">0:00.000</span></span>
+        </div>
+      </div>
+
       <div class="trim-controls">
-        <span class="trim-time" id="trimStart">00:00.000</span>
-        <button class="trim-btn" onclick="playTrimmedSegment('start')">▶ Inicio</button>
-        <span class="trim-time" id="trimEnd">00:00.000</span>
-        <button class="trim-btn" onclick="playTrimmedSegment('end')">▶ Fin</button>
+        <span class="trim-time start" id="trimStart">00:00.000</span>
+        <button class="trim-btn" onclick="playTrimmedSegment('start')">▶ Desde aquí</button>
+        <span class="trim-time end" id="trimEnd">00:00.000</span>
+        <button class="trim-btn" onclick="playTrimmedSegment('end')">▶ Hacia aquí</button>
         <button class="trim-btn primary" onclick="applyTrim()">APLICAR RECORTE</button>
         <button class="trim-btn" onclick="removeTrim()">QUITAR RECORTE</button>
       </div>
@@ -545,6 +537,26 @@ audioHidden.addEventListener("ended", () => {
     document.getElementById("previewBtn").textContent = "▶ ESCUCHAR";
 });
 
+// 🔑 ACTUALIZAR PLAYHEAD Y BARRA DE PROGRESO EN TIEMPO REAL
+audioHidden.addEventListener("timeupdate", () => {
+    if (!decodedBuffer) return;
+    const dur = decodedBuffer.duration;
+    const pos = audioHidden.currentTime;
+    const pct = Math.min(100, (pos / dur) * 100);
+    const playhead = document.getElementById("playhead");
+    const fill = document.getElementById("progressBarFill");
+    const currentTimeEl = document.getElementById("currentTime");
+    if (playhead) playhead.style.left = pct + "%";
+    if (fill) fill.style.width = pct + "%";
+    if (currentTimeEl) currentTimeEl.textContent = formatDuracion(pos);
+});
+
+audioHidden.addEventListener("loadedmetadata", () => {
+    if (!decodedBuffer) return;
+    const totalEl = document.getElementById("totalTime");
+    if (totalEl) totalEl.textContent = formatDuracion(decodedBuffer.duration);
+});
+
 function base64ToArrayBuffer(b64) {
     const binary = atob(b64);
     const bytes = new Uint8Array(binary.length);
@@ -560,6 +572,8 @@ function base64ToArrayBuffer(b64) {
         trimEndTime = decodedBuffer.duration;
         updateTrimUI();
         drawWaveform();
+        const totalEl = document.getElementById("totalTime");
+        if (totalEl) totalEl.textContent = formatDuracion(decodedBuffer.duration);
     } catch (e) {
         console.error("Error decodificando audio:", e);
         document.getElementById("inlineAlert").innerHTML =
@@ -612,7 +626,6 @@ function toggleTrim() {
             toggleTrim();
             return;
         }
-        // 🔑 Redibujar la onda y los handles al abrir
         setTimeout(() => {
             drawWaveform();
             updateTrimUI();
@@ -639,18 +652,15 @@ function drawWaveform() {
     ctx.scale(dpr, dpr);
     ctx.clearRect(0, 0, width, height);
 
-    // Fondo
     ctx.fillStyle = "#0a0a0f";
     ctx.fillRect(0, 0, width, height);
 
-    // Línea central
     ctx.strokeStyle = "rgba(139,92,246,0.15)";
     ctx.beginPath();
     ctx.moveTo(0, height / 2);
     ctx.lineTo(width, height / 2);
     ctx.stroke();
 
-    // Onda
     const data = decodedBuffer.getChannelData(0);
     const step = Math.ceil(data.length / width);
     const amp = height / 2;
@@ -675,7 +685,6 @@ function drawWaveform() {
     ctx.stroke();
 }
 
-// 🔑 ACTUALIZACIÓN CLAVE: los handles se mueven con la selección
 function updateTrimUI() {
     document.getElementById("trimStart").textContent = formatDuracion(trimStartTime);
     document.getElementById("trimEnd").textContent = formatDuracion(trimEndTime);
@@ -686,10 +695,8 @@ function updateTrimUI() {
         const dur = decodedBuffer.duration;
         const startPct = (trimStartTime / dur) * 100;
         const endPct = (trimEndTime / dur) * 100;
-        // Selección visible
         sel.style.left = startPct + "%";
         sel.style.width = (endPct - startPct) + "%";
-        // 🔑 MANEJADORES: ahora sí se mueven
         hl.style.left = startPct + "%";
         hr.style.left = endPct + "%";
     }
@@ -702,7 +709,11 @@ function playTrimmedSegment(position) {
     audioHidden.src = ORIGINAL_AUDIO_SRC;
     audioHidden.playbackRate = 1;
     audioHidden.preservesPitch = false;
-    audioHidden.currentTime = (position === 'start') ? trimStartTime : Math.max(0, trimEndTime - 3);
+    const startPos = (position === 'start') ? trimStartTime : Math.max(0, trimEndTime - 3);
+    audioHidden.currentTime = startPos;
+    // Actualizar playhead al inicio
+    const playhead = document.getElementById("playhead");
+    if (playhead) playhead.style.left = (startPos / decodedBuffer.duration * 100) + "%";
     audioHidden.play();
     document.getElementById("previewBtn").textContent = "⏸ PAUSA";
     if (position === 'end') {
@@ -713,6 +724,24 @@ function playTrimmedSegment(position) {
             }
         }, 50);
     }
+}
+
+function seekFromProgressBar(e) {
+    if (!decodedBuffer) return;
+    const bar = document.getElementById("progressBarMini");
+    const rect = bar.getBoundingClientRect();
+    const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+    const time = pct * decodedBuffer.duration;
+    audioHidden.pause();
+    audioHidden.src = ORIGINAL_AUDIO_SRC;
+    audioHidden.playbackRate = 1;
+    audioHidden.preservesPitch = false;
+    audioHidden.currentTime = time;
+    const playhead = document.getElementById("playhead");
+    if (playhead) playhead.style.left = (pct * 100) + "%";
+    const fill = document.getElementById("progressBarFill");
+    if (fill) fill.style.width = (pct * 100) + "%";
+    document.getElementById("currentTime").textContent = formatDuracion(time);
 }
 
 function applyTrim() {
@@ -749,14 +778,13 @@ function removeTrim() {
     document.getElementById("inlineAlert").innerHTML =
         '<div class="inline-alert ok">✅ Recorte eliminado. Se usará el audio completo.</div>';
     document.querySelector(".status .dur").textContent = formatDuracionSimple(decodedBuffer.duration);
-    // Resetear handles al estado inicial
     trimStartTime = 0;
     trimEndTime = decodedBuffer.duration;
     updateTrimUI();
     applyPitch();
 }
 
-// Manejo de manejadores (con soporte para mouse y touch)
+// Manejo de manejadores
 const handleLeft = document.getElementById("handleLeft");
 const handleRight = document.getElementById("handleRight");
 const waveformContainer = document.getElementById("waveformContainer");
@@ -815,7 +843,27 @@ handleRight.addEventListener("mousedown", (e) => startDrag(e, false));
 handleLeft.addEventListener("touchstart", (e) => startDrag(e, true), { passive: false });
 handleRight.addEventListener("touchstart", (e) => startDrag(e, false), { passive: false });
 
-// ==================== MODOS Y PITCH ====================
+// 🔑 CLICK EN LA ONDA PARA SALTAR A ESA POSICIÓN
+waveformContainer.addEventListener("click", (e) => {
+    if (!decodedBuffer) return;
+    if (e.target.classList.contains("handle") || e.target.closest(".handle")) return;
+    if (isDraggingLeft || isDraggingRight) return;
+    const x = getEventX(e);
+    const pct = Math.max(0, Math.min(1, x / waveformContainer.clientWidth));
+    const time = pct * decodedBuffer.duration;
+    audioHidden.pause();
+    audioHidden.src = ORIGINAL_AUDIO_SRC;
+    audioHidden.playbackRate = 1;
+    audioHidden.preservesPitch = false;
+    audioHidden.currentTime = time;
+    const playhead = document.getElementById("playhead");
+    if (playhead) playhead.style.left = (pct * 100) + "%";
+    const fill = document.getElementById("progressBarFill");
+    if (fill) fill.style.width = (pct * 100) + "%";
+    document.getElementById("currentTime").textContent = formatDuracion(time);
+});
+
+// ==================== MODOS ====================
 
 function applyPitch() {
     const idx = parseInt(document.getElementById("pitchIdx").value);
@@ -1270,7 +1318,6 @@ document.getElementById("toneSlider").addEventListener("input", function () {
 applyPitch();
 updateFill(document.getElementById("volSlider"));
 
-// Redibujar onda al cambiar tamaño de ventana
 window.addEventListener("resize", () => {
     if (isTrimming) {
         drawWaveform();
@@ -1288,11 +1335,9 @@ function showRandomTip() {
     let idx = Math.floor(Math.random() * TIPS.length);
     if (TIPS.length > 1 && idx === lastTipIndex) idx = (idx + 1) % TIPS.length;
     lastTipIndex = idx;
-
     const toast = document.getElementById("akiToast");
     toast.querySelector(".aki-toast-text").textContent = TIPS[idx];
     toast.classList.add("show");
-
     clearTimeout(toastAutoHideTimer);
     toastAutoHideTimer = setTimeout(hideToast, 9000);
 }
