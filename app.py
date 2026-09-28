@@ -17,8 +17,36 @@ st.set_page_config(
 )
 
 # ----------------------------------------------------------------------------
-# ESTILOS GLOBALES (se mantienen tus estilos, con ligeros ajustes para el
-# nuevo panel de recorte)
+# LOGO EN BASE64 (marca de agua de fondo)
+# ----------------------------------------------------------------------------
+_logo_b64 = None
+try:
+    with open("logo.png", "rb") as _f:
+        _logo_b64 = base64.b64encode(_f.read()).decode()
+except Exception:
+    _logo_b64 = None
+
+_logo_bg_css = ""
+if _logo_b64:
+    _logo_bg_css = f"""
+.stApp::before {{
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    background-image: url('data:image/png;base64,{_logo_b64}');
+    background-repeat: no-repeat;
+    background-position: center 22%;
+    background-size: 1200px;
+    opacity: 0.1;
+    filter: invert(1) blur(1px);
+    animation: bgBreathe 14s ease-in-out infinite alternate;
+}}
+"""
+
+# ----------------------------------------------------------------------------
+# ESTILOS GLOBALES
 # ----------------------------------------------------------------------------
 CSS_TEMPLATE = """
 <style>
@@ -37,13 +65,7 @@ footer, #MainMenu { display: none !important; }
     min-height: 100vh;
 }
 
-.stApp::before {
-    content: ""; position: absolute; inset: 0; z-index: 0; pointer-events: none;
-    background-image: url('data:image/png;base64,__LOGO_B64__');
-    background-repeat: no-repeat; background-position: center 22%; background-size: 1200px;
-    opacity: 0.1; filter: invert(1) blur(1px);
-    animation: bgBreathe 14s ease-in-out infinite alternate;
-}
+__LOGO_BG_CSS__
 
 .stApp::after {
     content: ""; position: absolute; inset: -6%; z-index: 0; pointer-events: none;
@@ -73,11 +95,11 @@ footer, #MainMenu { display: none !important; }
 
 [data-testid="stFileUploader"] section { background: transparent; border: none; }
 
-/* Reemplaza el texto en inglés del dropzone por instrucciones en español */
+/* Texto del dropzone en español (solo audio) */
 [data-testid="stFileUploaderDropzoneInstructions"] { font-size: 0 !important; display: flex !important; flex-direction: column; align-items: center; gap: 4px; }
 [data-testid="stFileUploaderDropzoneInstructions"] svg { display: none; }
 [data-testid="stFileUploaderDropzoneInstructions"]::before { content: "🎵"; font-size: 2.4rem; line-height: 1; display: block; margin-bottom: 4px; filter: drop-shadow(0 0 10px rgba(139,92,246,0.5)); }
-[data-testid="stFileUploaderDropzoneInstructions"]::after { content: "Arrastra tu canción aquí, o haz clic para buscarla\\A MP3 · WAV · OGG · FLAC · MP4 · WEBM · MOV · Y MÁS"; white-space: pre-line; font-family: 'Inter', sans-serif; font-size: 0.85rem; font-weight: 500; line-height: 1.6; text-align: center; color: rgba(235, 230, 245, 0.8); }
+[data-testid="stFileUploaderDropzoneInstructions"]::after { content: "Arrastra tu canción aquí, o haz clic para buscarla\\A MP3 · WAV · OGG · FLAC · M4A · AAC"; white-space: pre-line; font-family: 'Inter', sans-serif; font-size: 0.85rem; font-weight: 500; line-height: 1.6; text-align: center; color: rgba(235, 230, 245, 0.8); }
 
 [data-testid="stFileUploader"] section button { font-size: 0 !important; background: linear-gradient(135deg, #8b5cf6, #6d3ff0) !important; color: white !important; border: none !important; border-radius: 10px !important; padding: 0.5rem 1.1rem !important; margin-top: 14px !important; }
 [data-testid="stFileUploader"] section button::after { content: "Elegir archivo"; font-size: 0.8rem; font-weight: 600; font-family: 'Inter', sans-serif; }
@@ -88,6 +110,9 @@ iframe { position: relative; z-index: 1; }
 @media (prefers-reduced-motion: reduce) { .stApp::before, .stApp::after, [data-testid="stFileUploader"] { animation: none !important; } }
 </style>
 """
+
+# Inyectar el CSS con la marca de agua del logo
+st.markdown(CSS_TEMPLATE.replace("__LOGO_BG_CSS__", _logo_bg_css), unsafe_allow_html=True)
 
 # ----------------------------------------------------------------------------
 # ENCABEZADO
@@ -142,8 +167,8 @@ st.markdown(f"""
 # ----------------------------------------------------------------------------
 # CONFIGURACIÓN DE VALORES DE PITCH (patrón cuarto de tono 2^(n/24))
 # ----------------------------------------------------------------------------
-MAX_DURATION_SEC = 7 * 60  # 420s recomendados por Roblox
-DEFAULT_N = -29  # pitch ≈ 0.433
+MAX_DURATION_SEC = 7 * 60
+DEFAULT_N = -29
 
 def format_pitch(value):
     rounded = round(value, 3)
@@ -175,11 +200,11 @@ if "duracion_original" not in st.session_state:
     st.session_state.duracion_original = 0
 
 # ----------------------------------------------------------------------------
-# SUBIDA DE ARCHIVO (AHORA ACEPTA MÁS FORMATOS)
+# SUBIDA DE ARCHIVO (SOLO AUDIO COMPATIBLE)
 # ----------------------------------------------------------------------------
 archivo_subido = st.file_uploader(
-    " ", type=["mp3", "wav", "ogg", "flac", "m4a", "aac", "opus", "webm",
-               "mp4", "mov", "avi", "mkv", "flv", "wmv", "3gp", "m4v"],
+    " ",
+    type=["mp3", "wav", "ogg", "flac", "m4a", "aac", "opus"],
     label_visibility="collapsed"
 )
 
@@ -187,8 +212,6 @@ if archivo_subido is not None:
     if st.session_state.audio_name != archivo_subido.name:
         st.session_state.audio_data = archivo_subido.getvalue()
         st.session_state.audio_name = archivo_subido.name
-        
-        # Extraer duración con mutagen (o intentar con el navegador si falla)
         try:
             info = mutagen.File(io.BytesIO(st.session_state.audio_data))
             st.session_state.duracion_original = info.info.length if info else 0
@@ -196,25 +219,25 @@ if archivo_subido is not None:
             st.session_state.duracion_original = 0
 
 # ----------------------------------------------------------------------------
-# CONSEJOS Y RECOMENDACIONES
+# CONSEJOS
 # ----------------------------------------------------------------------------
 TIPS = [
     "Espera a que la música cargue por completo antes de tocar los sliders.",
     "El nombre del archivo descargado trae la velocidad que debes poner en PlaybackSpeed de Roblox Studio.",
     "El modo MANUAL te deja ajustar tono y velocidad por separado.",
-    "Cambia el nombre del archivo antes de subirlo a Roblox por uno que el filtro de texto acepte, o te lo puede censurar.",
-    "Evita canciones con lenguaje grosero o contenido explícito: Roblox puede banear cuentas por audio no apto.",
+    "Usa la función de RECORTE para eliminar anuncios o partes que no quieras.",
+    "Cambia el nombre del archivo antes de subirlo a Roblox por uno que el filtro de texto acepte.",
+    "Evita canciones con lenguaje grosero o contenido explícito: Roblox puede banear cuentas.",
     "Ten una cuenta secundaria para subir audios y no arriesgar tu cuenta principal.",
-    "Sube solo música que tengas derecho a usar, o Roblox puede eliminarla o sancionar la cuenta.",
-    "Guarda tu archivo original aparte antes de convertir, por si quieres probar otro ajuste luego.",
-    "Prueba el audio convertido dentro de Roblox Studio antes de publicarlo en tu juego.",
-    "Esta página no se hace responsable por baneos dentro de Roblox: el uso del audio es bajo tu responsabilidad.",
-    "Únete a mi juego de Roblox y a la comunidad de Discord/WhatsApp para apoyar el proyecto.",
-    "Usa la función de RECORTE para eliminar anuncios o partes que no quieras de la canción.",
+    "Sube solo música que tengas derecho a usar.",
+    "Guarda tu archivo original aparte antes de convertir.",
+    "Prueba el audio convertido dentro de Roblox Studio antes de publicarlo.",
+    "Esta página no se hace responsable por baneos dentro de Roblox.",
+    "Únete a mi juego de Roblox y a la comunidad de Discord/WhatsApp.",
 ]
 
 # ----------------------------------------------------------------------------
-# REPRODUCTOR + CONVERSOR (100% client-side)
+# REPRODUCTOR + CONVERSOR
 # ----------------------------------------------------------------------------
 if st.session_state.audio_data is not None:
     _loading_slot = st.empty()
@@ -233,8 +256,6 @@ if st.session_state.audio_data is not None:
     valores_js = "[" + ",".join([f'{{"n":{v["n"]},"pitch":{v["pitch"]},"texto":"{v["texto"]}"}}' for v in QT_VALUES]) + "]"
     tips_js = json.dumps(TIPS, ensure_ascii=False)
 
-    # La plantilla HTML se mantiene casi igual, pero con los nuevos IDs y
-    # lógica para el panel de recorte.
     TEMPLATE = r"""
 <!DOCTYPE html>
 <html>
@@ -268,7 +289,7 @@ if st.session_state.audio_data is not None:
   .filename { font-size: 0.95rem; font-weight: 600; color: #f2eefc; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 62%; }
   .status { font-family: 'JetBrains Mono', monospace; font-size: 0.68rem; font-weight: 600; letter-spacing: 1.5px; color: var(--accent-strong); border: 1px solid rgba(139,92,246,0.35); background: var(--accent-dim); padding: 4px 10px; border-radius: 20px; display: flex; align-items: center; gap: 8px; white-space: nowrap; }
   .status .dur { color: rgba(230,225,245,0.55); font-weight: 500; }
-  .controls-row { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }
+  .controls-row { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }
   .btn { font-family: 'Inter', sans-serif; font-weight: 600; font-size: 0.78rem; letter-spacing: 0.5px; padding: 9px 16px; border-radius: 12px; border: 1px solid var(--line); background: rgba(255,255,255,0.04); color: #d8d3ea; cursor: pointer; transition: all .15s ease; white-space: nowrap; }
   .btn:hover { background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.18); }
   .btn.active { background: var(--accent-dim); border-color: rgba(139,92,246,0.5); color: #d9c8ff; }
@@ -302,7 +323,7 @@ if st.session_state.audio_data is not None:
   .convert-btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
   #audioHidden { display: none; }
 
-  /* 🔑 Estilos para el panel de recorte */
+  /* Panel de recorte */
   #trimPanel { margin-top: 16px; padding: 16px; background: rgba(255,255,255,0.03); border: 1px solid var(--line); border-radius: 14px; display: none; }
   #waveformContainer { width: 100%; height: 100px; background: #0a0a0f; border-radius: 8px; position: relative; overflow: hidden; margin-bottom: 12px; }
   #waveformCanvas { width: 100%; height: 100%; display: block; }
@@ -349,7 +370,6 @@ if st.session_state.audio_data is not None:
       <button class="btn" id="trimToggleBtn" onclick="toggleTrim()">✂️ RECORTAR</button>
     </div>
 
-    <!-- Panel de Recorte (oculto por defecto) -->
     <div id="trimPanel">
       <div id="waveformContainer">
         <canvas id="waveformCanvas"></canvas>
@@ -426,7 +446,7 @@ const ORIGINAL_AUDIO_SRC = "data:audio/mp3;base64," + AUDIO_B64;
 let mode = "auto";
 let selectedFormat = "ogg";
 let decodedBuffer = null;
-let trimmedBuffer = null; // Buffer con el recorte aplicado
+let trimmedBuffer = null;
 let trimStartTime = 0;
 let trimEndTime = 0;
 let isTrimming = false;
@@ -435,6 +455,7 @@ let isDraggingRight = false;
 let manualPreviewUrl = null;
 let manualPreviewDirty = true;
 let manualDebounceTimer = null;
+let globalAudioCtx = null;
 
 function setFormat(fmt) {
     selectedFormat = fmt;
@@ -465,18 +486,16 @@ function base64ToArrayBuffer(b64) {
 
 (async function initDecode() {
     try {
-        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        decodedBuffer = await audioCtx.decodeAudioData(base64ToArrayBuffer(AUDIO_B64));
-        // Inicializar el recorte con la duración completa
+        globalAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        decodedBuffer = await globalAudioCtx.decodeAudioData(base64ToArrayBuffer(AUDIO_B64));
         trimStartTime = 0;
         trimEndTime = decodedBuffer.duration;
         updateTrimUI();
         drawWaveform();
     } catch (e) {
         console.error("Error decodificando audio:", e);
-        // Mostrar mensaje de error al usuario
         document.getElementById("inlineAlert").innerHTML =
-            '<div class="inline-alert warn">⚠ No se pudo decodificar el audio. Es posible que el formato no sea compatible con tu navegador. Prueba con otro archivo o conviértelo a MP3 primero.</div>';
+            '<div class="inline-alert warn">⚠ No se pudo decodificar el audio. Prueba con otro archivo MP3, WAV u OGG.</div>';
     }
 })();
 
@@ -513,13 +532,13 @@ function toggleTrim() {
         panel.style.display = "block";
         btn.classList.add("active");
         btn.textContent = "✅ CERRAR RECORTE";
-        // Asegurarse de que el buffer decodificado existe
         if (!decodedBuffer) {
             document.getElementById("inlineAlert").innerHTML =
                 '<div class="inline-alert warn">⚠ El audio aún no se ha decodificado. Espera un momento e intenta de nuevo.</div>';
-            toggleTrim(); // Cerrar
+            toggleTrim();
             return;
         }
+        drawWaveform();
     } else {
         panel.style.display = "none";
         btn.classList.remove("active");
@@ -537,6 +556,7 @@ function drawWaveform() {
     const height = container.clientHeight;
     canvas.width = width * dpr;
     canvas.height = height * dpr;
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.scale(dpr, dpr);
     ctx.clearRect(0, 0, width, height);
 
@@ -562,15 +582,6 @@ function drawWaveform() {
     ctx.strokeStyle = "#8b5cf6";
     ctx.lineWidth = 1;
     ctx.stroke();
-
-    // Dibujar la selección
-    const sel = document.getElementById("selection");
-    if (sel) {
-        const startPct = (trimStartTime / decodedBuffer.duration) * 100;
-        const endPct = (trimEndTime / decodedBuffer.duration) * 100;
-        sel.style.left = startPct + "%";
-        sel.style.width = (endPct - startPct) + "%";
-    }
 }
 
 function updateTrimUI() {
@@ -594,7 +605,6 @@ function playTrimmedSegment(position) {
     audioHidden.preservesPitch = false;
     audioHidden.currentTime = (position === 'start') ? trimStartTime : Math.max(0, trimEndTime - 3);
     audioHidden.play();
-    // Detener la reproducción al llegar al final del segmento si es 'end'
     if (position === 'end') {
         const checkEnd = setInterval(() => {
             if (audioHidden.currentTime >= trimEndTime) {
@@ -606,13 +616,13 @@ function playTrimmedSegment(position) {
 }
 
 function applyTrim() {
-    if (!decodedBuffer) return;
+    if (!decodedBuffer || !globalAudioCtx) return;
     const startSample = Math.floor(trimStartTime * decodedBuffer.sampleRate);
     const endSample = Math.floor(trimEndTime * decodedBuffer.sampleRate);
     const length = endSample - startSample;
     if (length <= 0) return;
 
-    const newBuffer = audioCtx.createBuffer(
+    const newBuffer = globalAudioCtx.createBuffer(
         decodedBuffer.numberOfChannels,
         length,
         decodedBuffer.sampleRate
@@ -626,30 +636,31 @@ function applyTrim() {
         }
     }
     trimmedBuffer = newBuffer;
-    // Actualizar la duración original que se usa en los cálculos
     window.DURACION_ORIGINAL = trimmedBuffer.duration;
     document.getElementById("inlineAlert").innerHTML =
         '<div class="inline-alert ok">✅ Recorte aplicado. Ahora el audio dura ' + formatDuracion(trimmedBuffer.duration) + '.</div>';
-    // Actualizar el estado de la UI
-    document.querySelector(".status .dur").textContent = formatDuracion(trimmedBuffer.duration);
-    // Redibujar la forma de onda con el nuevo buffer
-    drawWaveform();
-    updateTrimUI();
-    // Cerrar panel de recorte
+    document.querySelector(".status .dur").textContent = format_duracion_simple(trimmedBuffer.duration);
+    applyPitch();
     toggleTrim();
 }
 
+function format_duracion_simple(seg) {
+    const m = Math.floor(seg / 60);
+    const s = Math.floor(seg % 60);
+    return m + ":" + (s < 10 ? "0" : "") + s;
+}
+
 function removeTrim() {
+    if (!decodedBuffer) return;
     trimmedBuffer = null;
     window.DURACION_ORIGINAL = decodedBuffer.duration;
     document.getElementById("inlineAlert").innerHTML =
         '<div class="inline-alert ok">✅ Recorte eliminado. Se usará el audio completo.</div>';
-    document.querySelector(".status .dur").textContent = formatDuracion(decodedBuffer.duration);
-    drawWaveform();
-    updateTrimUI();
+    document.querySelector(".status .dur").textContent = format_duracion_simple(decodedBuffer.duration);
+    applyPitch();
 }
 
-// ---------------- Manejo de los manejadores de recorte ----------------
+// Manejo de manejadores
 const handleLeft = document.getElementById("handleLeft");
 const handleRight = document.getElementById("handleRight");
 const waveformContainer = document.getElementById("waveformContainer");
@@ -677,7 +688,7 @@ function onDrag(e) {
     const time = pct * decodedBuffer.duration;
 
     if (isDraggingLeft) {
-        trimStartTime = Math.min(time, trimEndTime - 0.1); // Mínimo 0.1s de diferencia
+        trimStartTime = Math.min(time, trimEndTime - 0.1);
     } else if (isDraggingRight) {
         trimEndTime = Math.max(time, trimStartTime + 0.1);
     }
@@ -698,7 +709,7 @@ handleRight.addEventListener("mousedown", (e) => startDrag(e, false));
 handleLeft.addEventListener("touchstart", (e) => startDrag(e, true), { passive: false });
 handleRight.addEventListener("touchstart", (e) => startDrag(e, false), { passive: false });
 
-// ---------------- Lógica de Pitch y Modos ----------------
+// ---------------- Modos y Pitch ----------------
 
 function applyPitch() {
     const idx = parseInt(document.getElementById("pitchIdx").value);
@@ -710,7 +721,8 @@ function applyPitch() {
     audioHidden.webkitPreservesPitch = false;
 
     const semitonos = (v.n / 2).toFixed(1);
-    const duracionSalida = (trimmedBuffer ? trimmedBuffer.duration : DURACION_ORIGINAL) * pitchVal;
+    const durBase = (trimmedBuffer ? trimmedBuffer.duration : DURACION_ORIGINAL);
+    const duracionSalida = durBase * pitchVal;
 
     document.getElementById("pitchInfo").innerHTML =
         "PITCH: <b>" + v.texto + "</b> &nbsp;|&nbsp; SEMITONOS: <b>" + semitonos + "</b><br>" +
@@ -724,7 +736,8 @@ function applyPitch() {
 function applyManualInfo() {
     const speedVal = parseFloat(document.getElementById("speedSlider").value);
     const toneVal = parseFloat(document.getElementById("toneSlider").value);
-    const duracionSalida = (trimmedBuffer ? trimmedBuffer.duration : DURACION_ORIGINAL) / speedVal;
+    const durBase = (trimmedBuffer ? trimmedBuffer.duration : DURACION_ORIGINAL);
+    const duracionSalida = durBase / speedVal;
 
     document.getElementById("manualInfo").innerHTML =
         "VELOCIDAD: <b>" + speedVal.toFixed(2) + "x</b> &nbsp;|&nbsp; TONO: <b>" + (toneVal > 0 ? "+" : "") + toneVal + " st</b><br>" +
@@ -753,11 +766,8 @@ function toggleMode() {
     audioHidden.src = ORIGINAL_AUDIO_SRC;
     audioHidden.playbackRate = 1;
 
-    if (mode === "auto") {
-        applyPitch();
-    } else {
-        applyManualInfo();
-    }
+    if (mode === "auto") applyPitch();
+    else applyManualInfo();
 }
 
 function togglePreview() {
@@ -780,7 +790,7 @@ function togglePreview() {
     }
 }
 
-// ---------------- DSP: time-stretch (OLA) + pitch-shift independientes ----------------
+// ---------------- DSP ----------------
 
 function hannWindow(size) {
     const w = new Float32Array(size);
@@ -848,7 +858,7 @@ function processManual(channelsData, semitones, speedFactor) {
     return channelsData.map(ch => speedStretch(pitchShift(ch, semitones), speedFactor));
 }
 
-// ---------------- Codificación MP3 (lamejs) ----------------
+// ---------------- Codificación MP3 ----------------
 
 function encodeMP3(audioBuffer, kbps) {
     const numChannels = audioBuffer.numberOfChannels;
@@ -885,7 +895,7 @@ function encodeMP3(audioBuffer, kbps) {
     return new Blob(mp3Data, { type: "audio/mp3" });
 }
 
-// ---------------- Codificación WAV (PCM 16-bit, sin librería externa) ----------------
+// ---------------- Codificación WAV ----------------
 
 function encodeWAV(audioBuffer) {
     const numChannels = audioBuffer.numberOfChannels;
@@ -907,7 +917,7 @@ function encodeWAV(audioBuffer) {
     writeStr(8, "WAVE");
     writeStr(12, "fmt ");
     view.setUint32(16, 16, true);
-    view.setUint16(20, 1, true); // PCM
+    view.setUint16(20, 1, true);
     view.setUint16(22, numChannels, true);
     view.setUint32(24, sampleRate, true);
     view.setUint32(28, sampleRate * blockAlign, true);
@@ -932,11 +942,11 @@ function encodeWAV(audioBuffer) {
     return new Blob([buffer], { type: "audio/wav" });
 }
 
-// ---------------- Codificación OGG Vorbis (wasm-media-encoders, vía CDN) ----------------
+// ---------------- Codificación OGG ----------------
 
 async function encodeOGG(audioBuffer) {
     if (typeof WasmMediaEncoder === "undefined") {
-        throw new Error("El codificador de OGG todavía no cargó, intenta de nuevo en un segundo.");
+        throw new Error("El codificador de OGG todavía no cargó.");
     }
     const numChannels = audioBuffer.numberOfChannels;
     const sampleRate = audioBuffer.sampleRate;
@@ -960,14 +970,12 @@ async function encodeOGG(audioBuffer) {
 }
 
 async function encodeByFormat(audioBufferLike, fmt) {
-    if (fmt === "wav") {
-        return { blob: encodeWAV(audioBufferLike), ext: "wav" };
-    }
+    if (fmt === "wav") return { blob: encodeWAV(audioBufferLike), ext: "wav" };
     if (fmt === "ogg") {
         try {
             return { blob: await encodeOGG(audioBufferLike), ext: "ogg" };
         } catch (e) {
-            console.error("OGG encoder falló, usando MP3 como respaldo:", e);
+            console.error("OGG encoder falló, usando MP3:", e);
             document.getElementById("inlineAlert").innerHTML =
                 '<div class="inline-alert warn">⚠ No se pudo generar el OGG, se descargó en MP3 en su lugar.</div>';
             return { blob: encodeMP3(audioBufferLike, 192), ext: "mp3" };
@@ -999,12 +1007,13 @@ async function previewManual(isRefresh) {
     }
 
     try {
-        const sr = decodedBuffer.sampleRate;
-        const maxSamples = Math.min(decodedBuffer.length, sr * MANUAL_PREVIEW_SECONDS);
-        const numCh = decodedBuffer.numberOfChannels;
+        const src = trimmedBuffer || decodedBuffer;
+        const sr = src.sampleRate;
+        const maxSamples = Math.min(src.length, sr * MANUAL_PREVIEW_SECONDS);
+        const numCh = src.numberOfChannels;
         const channels = [];
         for (let c = 0; c < numCh; c++) {
-            channels.push(decodedBuffer.getChannelData(c).slice(0, maxSamples));
+            channels.push(src.getChannelData(c).slice(0, maxSamples));
         }
         const semitones = parseFloat(document.getElementById("toneSlider").value);
         const speedVal = parseFloat(document.getElementById("speedSlider").value);
@@ -1028,15 +1037,13 @@ async function previewManual(isRefresh) {
         audioHidden.playbackRate = 1;
         audioHidden.preservesPitch = true;
         audioHidden.currentTime = 0;
-        if (!isRefresh || wasPlaying) {
-            audioHidden.play();
-        }
+        if (!isRefresh || wasPlaying) audioHidden.play();
         if (oldUrl) URL.revokeObjectURL(oldUrl);
         btn.textContent = "⏸ PAUSA";
     } catch (e) {
         console.error(e);
         document.getElementById("inlineAlert").innerHTML =
-            '<div class="inline-alert warn">⚠ No se pudo generar la vista previa. Intenta mover el slider de nuevo.</div>';
+            '<div class="inline-alert warn">⚠ No se pudo generar la vista previa.</div>';
         btn.textContent = "▶ ESCUCHAR";
     }
     if (!isRefresh) btn.disabled = false;
@@ -1140,7 +1147,6 @@ async function convertir() {
     }
 }
 
-// ---------------- Event Listeners Globales ----------------
 document.getElementById("volSlider").addEventListener("input", function () {
     document.getElementById("volValue").textContent = Math.round(this.value * 100) + "%";
     updateFill(this);
@@ -1159,12 +1165,10 @@ document.getElementById("toneSlider").addEventListener("input", function () {
     scheduleManualRefresh();
 });
 
-// Inicializar valores
 applyPitch();
 updateFill(document.getElementById("volSlider"));
-drawWaveform(); // Dibujar la forma de onda inicial
 
-// ---------------- Notificaciones con consejos (tipo mensaje de celular) ----------------
+// ---------------- Notificaciones con consejos ----------------
 
 const TIPS = __TIPS_JS__;
 let toastAutoHideTimer = null;
@@ -1189,14 +1193,14 @@ function hideToast() {
 }
 
 function scheduleNextTip() {
-    const delayMs = (150 + Math.random() * 150) * 1000; // entre 2.5 y 5 minutos, al azar
+    const delayMs = (150 + Math.random() * 150) * 1000;
     setTimeout(() => {
         showRandomTip();
         scheduleNextTip();
     }, delayMs);
 }
 
-setTimeout(showRandomTip, 6000); // el primer consejo aparece a los 6s de cargar
+setTimeout(showRandomTip, 6000);
 scheduleNextTip();
 </script>
 </body>
