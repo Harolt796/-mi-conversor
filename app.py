@@ -3,61 +3,31 @@ import streamlit.components.v1 as components
 import os
 import io
 import json
-import mutagen
 import base64
+import mutagen
 
+# ----------------------------------------------------------------------------
+# CONFIGURACIÓN DE LA PÁGINA
+# ----------------------------------------------------------------------------
 st.set_page_config(
-    page_title="AKI Audio Converter",
+    page_title="AKI 😺 Audio Converter",
     page_icon="😺",
     layout="centered",
     initial_sidebar_state="collapsed"
 )
 
 # ----------------------------------------------------------------------------
-# LOGO EN BASE64 (para usarlo como marca de agua de fondo, sin servir archivos
-# estáticos aparte)
-# ----------------------------------------------------------------------------
-_logo_b64 = None
-try:
-    with open("logo.png", "rb") as _f:
-        _logo_b64 = base64.b64encode(_f.read()).decode()
-except Exception:
-    _logo_b64 = None
-
-_logo_bg_css = ""
-if _logo_b64:
-    _logo_bg_css = f"""
-.stApp::before {{
-    content: "";
-    position: absolute;
-    inset: 0;
-    z-index: 0;
-    pointer-events: none;
-    background-image: url('data:image/png;base64,{_logo_b64}');
-    background-repeat: no-repeat;
-    background-position: center 22%;
-    background-size: 1200px;
-    opacity: 0.1;
-    filter: invert(1) blur(1px);
-    animation: bgBreathe 14s ease-in-out infinite alternate;
-}}
-"""
-
-# ----------------------------------------------------------------------------
-# ESTILOS GLOBALES DE LA PÁGINA (fuera del iframe)
+# ESTILOS GLOBALES (se mantienen tus estilos, con ligeros ajustes para el
+# nuevo panel de recorte)
 # ----------------------------------------------------------------------------
 CSS_TEMPLATE = """
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700;800&display=swap');
 
-html, body, [class*="css"] {
-    font-family: 'Inter', sans-serif;
-}
+html, body, [class*="css"] { font-family: 'Inter', sans-serif; }
 
 [data-testid="stHeader"], [data-testid="stToolbar"], [data-testid="stDecoration"],
-footer, #MainMenu {
-    display: none !important;
-}
+footer, #MainMenu { display: none !important; }
 
 .stApp {
     background: #07060a;
@@ -67,15 +37,16 @@ footer, #MainMenu {
     min-height: 100vh;
 }
 
-/* IMPORTANTE: ninguna capa de este stack puede ser opaca de borde a borde,
-   o taparía la marca de agua del logo (.stApp::before) que va detrás.
-   El color base ya lo pone `.stApp { background: #07060a; }`. */
+.stApp::before {
+    content: ""; position: absolute; inset: 0; z-index: 0; pointer-events: none;
+    background-image: url('data:image/png;base64,__LOGO_B64__');
+    background-repeat: no-repeat; background-position: center 22%; background-size: 1200px;
+    opacity: 0.1; filter: invert(1) blur(1px);
+    animation: bgBreathe 14s ease-in-out infinite alternate;
+}
+
 .stApp::after {
-    content: "";
-    position: absolute;
-    inset: -6%;
-    z-index: 0;
-    pointer-events: none;
+    content: ""; position: absolute; inset: -6%; z-index: 0; pointer-events: none;
     background:
         radial-gradient(38% 32% at 18% 8%, rgba(139,92,246,0.20), transparent 60%),
         radial-gradient(34% 30% at 88% 14%, rgba(78,205,255,0.14), transparent 60%),
@@ -85,206 +56,53 @@ footer, #MainMenu {
     transform-origin: center;
 }
 
-@keyframes bgBreathe {
-    0% { transform: scale(1) translate(0, 0); }
-    100% { transform: scale(1.06) translate(-1%, 1%); }
-}
+@keyframes bgBreathe { 0% { transform: scale(1) translate(0, 0); } 100% { transform: scale(1.06) translate(-1%, 1%); } }
 
-__LOGO_BG_CSS__
-
-.block-container {
-    padding-top: 2.2rem;
-    max-width: 640px;
-    position: relative;
-    z-index: 1;
-}
+.block-container { padding-top: 2.2rem; max-width: 680px; position: relative; z-index: 1; }
 
 [data-testid="stFileUploader"] {
-    position: relative;
-    border: 1.5px dashed rgba(168, 130, 255, 0.4);
-    border-radius: 20px;
+    position: relative; border: 1.5px dashed rgba(168, 130, 255, 0.4); border-radius: 20px;
     background: linear-gradient(160deg, rgba(139,92,246,0.06), rgba(255,255,255,0.015));
-    backdrop-filter: blur(6px);
-    padding: 2.4rem 1.4rem;
-    min-height: 168px;
-    transition: border-color .2s ease, background .2s ease;
-    animation: dashFlow 5s ease-in-out infinite;
+    backdrop-filter: blur(6px); padding: 2.4rem 1.4rem; min-height: 168px;
+    transition: border-color .2s ease, background .2s ease; animation: dashFlow 5s ease-in-out infinite;
 }
 
-@keyframes dashFlow {
-    0%, 100% { box-shadow: 0 0 0 0 rgba(139,92,246,0); border-color: rgba(168,130,255,0.4); }
-    50% { box-shadow: 0 0 26px 0 rgba(139,92,246,0.16); border-color: rgba(168,130,255,0.7); }
-}
+@keyframes dashFlow { 0%, 100% { box-shadow: 0 0 0 0 rgba(139,92,246,0); border-color: rgba(168,130,255,0.4); } 50% { box-shadow: 0 0 26px 0 rgba(139,92,246,0.16); border-color: rgba(168,130,255,0.7); } }
 
-[data-testid="stFileUploader"]:hover {
-    border-color: rgba(168, 130, 255, 0.85);
-    background: linear-gradient(160deg, rgba(168,130,255,0.10), rgba(255,255,255,0.015));
-}
+[data-testid="stFileUploader"]:hover { border-color: rgba(168, 130, 255, 0.85); background: linear-gradient(160deg, rgba(168,130,255,0.10), rgba(255,255,255,0.015)); }
 
-[data-testid="stFileUploader"] section {
-    background: transparent;
-    border: none;
-}
+[data-testid="stFileUploader"] section { background: transparent; border: none; }
 
 /* Reemplaza el texto en inglés del dropzone por instrucciones en español */
-[data-testid="stFileUploaderDropzoneInstructions"] {
-    font-size: 0 !important;
-    display: flex !important;
-    flex-direction: column;
-    align-items: center;
-    gap: 4px;
-}
+[data-testid="stFileUploaderDropzoneInstructions"] { font-size: 0 !important; display: flex !important; flex-direction: column; align-items: center; gap: 4px; }
 [data-testid="stFileUploaderDropzoneInstructions"] svg { display: none; }
-[data-testid="stFileUploaderDropzoneInstructions"]::before {
-    content: "🎵";
-    font-size: 2.4rem;
-    line-height: 1;
-    display: block;
-    margin-bottom: 4px;
-    filter: drop-shadow(0 0 10px rgba(139,92,246,0.5));
-}
-[data-testid="stFileUploaderDropzoneInstructions"]::after {
-    content: "Arrastra tu canción aquí, o haz clic para buscarla\A MP3 · WAV · OGG · FLAC";
-    white-space: pre-line;
-    font-family: 'Inter', sans-serif;
-    font-size: 0.85rem;
-    font-weight: 500;
-    line-height: 1.6;
-    text-align: center;
-    color: rgba(235, 230, 245, 0.8);
-}
+[data-testid="stFileUploaderDropzoneInstructions"]::before { content: "🎵"; font-size: 2.4rem; line-height: 1; display: block; margin-bottom: 4px; filter: drop-shadow(0 0 10px rgba(139,92,246,0.5)); }
+[data-testid="stFileUploaderDropzoneInstructions"]::after { content: "Arrastra tu canción aquí, o haz clic para buscarla\\A MP3 · WAV · OGG · FLAC · MP4 · WEBM · MOV · Y MÁS"; white-space: pre-line; font-family: 'Inter', sans-serif; font-size: 0.85rem; font-weight: 500; line-height: 1.6; text-align: center; color: rgba(235, 230, 245, 0.8); }
 
-/* Solo el botón DENTRO de la zona de arrastre (elegir/reemplazar canción).
-   El botón "✕" para quitar el archivo ya subido vive fuera de esa zona y
-   no se toca aquí, así no hereda un texto que no le corresponde. */
-[data-testid="stFileUploader"] section button {
-    font-size: 0 !important;
-    background: linear-gradient(135deg, #8b5cf6, #6d3ff0) !important;
-    color: white !important;
-    border: none !important;
-    border-radius: 10px !important;
-    padding: 0.5rem 1.1rem !important;
-    margin-top: 14px !important;
-}
-[data-testid="stFileUploader"] section button::after {
-    content: "Elegir canción";
-    font-size: 0.8rem;
-    font-weight: 600;
-    font-family: 'Inter', sans-serif;
-}
+[data-testid="stFileUploader"] section button { font-size: 0 !important; background: linear-gradient(135deg, #8b5cf6, #6d3ff0) !important; color: white !important; border: none !important; border-radius: 10px !important; padding: 0.5rem 1.1rem !important; margin-top: 14px !important; }
+[data-testid="stFileUploader"] section button::after { content: "Elegir archivo"; font-size: 0.8rem; font-weight: 600; font-family: 'Inter', sans-serif; }
 
-iframe {
-    position: relative;
-    z-index: 1;
-}
+iframe { position: relative; z-index: 1; }
 
-/* Optimización para celulares: menos desenfoque y menos animación simultánea */
-@media (max-width: 600px) {
-    .stApp::before, .stApp::after { animation-duration: 20s; }
-    [data-testid="stFileUploader"] { animation: none; backdrop-filter: none; padding: 1.8rem 1rem; min-height: 130px; }
-}
-@media (prefers-reduced-motion: reduce) {
-    .stApp::before, .stApp::after, [data-testid="stFileUploader"] { animation: none !important; }
-}
+@media (max-width: 600px) { .stApp::before, .stApp::after { animation-duration: 20s; } [data-testid="stFileUploader"] { animation: none; backdrop-filter: none; padding: 1.8rem 1rem; min-height: 130px; } }
+@media (prefers-reduced-motion: reduce) { .stApp::before, .stApp::after, [data-testid="stFileUploader"] { animation: none !important; } }
 </style>
 """
 
-st.markdown(CSS_TEMPLATE.replace("__LOGO_BG_CSS__", _logo_bg_css), unsafe_allow_html=True)
-
 # ----------------------------------------------------------------------------
-# "HUMO" DE FONDO (capas difusas en movimiento, puramente decorativas)
-# ----------------------------------------------------------------------------
-st.markdown("""
-<div class="aki-smoke aki-smoke-1"></div>
-<div class="aki-smoke aki-smoke-2"></div>
-<div class="aki-smoke aki-smoke-3"></div>
-<style>
-.aki-smoke {
-    position: absolute;
-    z-index: 0;
-    pointer-events: none;
-    border-radius: 50%;
-    filter: blur(70px);
-    opacity: 0.5;
-}
-.aki-smoke-1 {
-    top: -120px; left: -140px; width: 420px; height: 420px;
-    background: radial-gradient(circle, rgba(139,92,246,0.35), transparent 70%);
-    animation: smokeDrift1 16s ease-in-out infinite alternate;
-}
-.aki-smoke-2 {
-    top: 260px; right: -160px; width: 460px; height: 460px;
-    background: radial-gradient(circle, rgba(78,205,255,0.28), transparent 70%);
-    animation: smokeDrift2 20s ease-in-out infinite alternate;
-}
-.aki-smoke-3 {
-    bottom: -180px; left: 30%; width: 500px; height: 500px;
-    background: radial-gradient(circle, rgba(240,166,58,0.18), transparent 70%);
-    animation: smokeDrift3 24s ease-in-out infinite alternate;
-}
-@keyframes smokeDrift1 {
-    0% { transform: translate(0, 0) scale(1); }
-    100% { transform: translate(60px, 40px) scale(1.15); }
-}
-@keyframes smokeDrift2 {
-    0% { transform: translate(0, 0) scale(1); }
-    100% { transform: translate(-50px, 30px) scale(1.1); }
-}
-@keyframes smokeDrift3 {
-    0% { transform: translate(0, 0) scale(1); }
-    100% { transform: translate(30px, -40px) scale(1.2); }
-}
-/* En celulares reducimos el desenfoque y quitamos una capa: el blur pesado
-   es lo que más consume en equipos modestos. */
-@media (max-width: 600px) {
-    .aki-smoke { filter: blur(40px); opacity: 0.4; }
-    .aki-smoke-3 { display: none; }
-}
-@media (prefers-reduced-motion: reduce) {
-    .aki-smoke { animation: none !important; }
-}
-</style>
-""", unsafe_allow_html=True)
-
-# ----------------------------------------------------------------------------
-# ENCABEZADO (sin el logo arriba: el logo ahora solo vive de fondo)
+# ENCABEZADO
 # ----------------------------------------------------------------------------
 st.markdown("""
 <div style="text-align:center; margin-top:10px; margin-bottom:0.9rem;">
     <div class="aki-title">AKI<span class="aki-cat">😺</span>AUDIO</div>
-    <div style="font-family:'JetBrains Mono', monospace; font-size:0.72rem; letter-spacing:3px;
-                color:rgba(200,190,220,0.5); margin-top:4px; text-transform:uppercase;">
-        Convertidor de tono y velocidad · Listo para Roblox
-    </div>
+    <div style="font-family:'JetBrains Mono', monospace; font-size:0.72rem; letter-spacing:3px; color:rgba(200,190,220,0.5); margin-top:4px; text-transform:uppercase;">Convertidor de tono y velocidad · Listo para Roblox</div>
 </div>
 <style>
-.aki-title {
-    font-family: 'JetBrains Mono', monospace; font-weight:800; font-size:2.3rem;
-    letter-spacing:2px;
-}
-.aki-title > span:not(.aki-cat),
-.aki-title {
-    background: linear-gradient(90deg, #8b5cf6, #4ecdff, #f0a63a, #ff5fae, #8b5cf6);
-    background-size: 300% auto;
-    -webkit-background-clip:text; -webkit-text-fill-color:transparent;
-    background-clip:text;
-    animation: akiShimmer 6s linear infinite;
-    filter: drop-shadow(0 0 18px rgba(139,92,246,0.3));
-}
-.aki-cat {
-    -webkit-text-fill-color: initial;
-    background: none;
-    filter: none;
-    display: inline-block;
-    margin: 0 2px;
-    animation: none;
-}
-@keyframes akiShimmer {
-    to { background-position: 300% center; }
-}
-@media (prefers-reduced-motion: reduce) {
-    .aki-title { animation: none !important; }
-}
+.aki-title { font-family: 'JetBrains Mono', monospace; font-weight:800; font-size:2.3rem; letter-spacing:2px; }
+.aki-title > span:not(.aki-cat), .aki-title { background: linear-gradient(90deg, #8b5cf6, #4ecdff, #f0a63a, #ff5fae, #8b5cf6); background-size: 300% auto; -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; animation: akiShimmer 6s linear infinite; filter: drop-shadow(0 0 18px rgba(139,92,246,0.3)); }
+.aki-cat { -webkit-text-fill-color: initial; background: none; filter: none; display: inline-block; margin: 0 2px; animation: none; }
+@keyframes akiShimmer { to { background-position: 300% center; } }
+@media (prefers-reduced-motion: reduce) { .aki-title { animation: none !important; } }
 </style>
 """, unsafe_allow_html=True)
 
@@ -308,18 +126,8 @@ st.markdown(f"""
     </a>
 </div>
 <style>
-.aki-social-row {{
-    display: flex; justify-content: center; gap: 10px; flex-wrap: wrap;
-    margin-bottom: 1.6rem;
-}}
-.aki-social {{
-    display: inline-flex; align-items: center; gap: 6px;
-    padding: 7px 14px; border-radius: 999px;
-    font-family: 'Inter', sans-serif; font-size: 0.78rem; font-weight: 600;
-    text-decoration: none; border: 1px solid rgba(255,255,255,0.1);
-    background: rgba(255,255,255,0.04);
-    transition: transform .15s ease, box-shadow .15s ease, border-color .15s ease;
-}}
+.aki-social-row {{ display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; margin-bottom: 1.6rem; }}
+.aki-social {{ display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px; border-radius: 999px; font-family: 'Inter', sans-serif; font-size: 0.78rem; font-weight: 600; text-decoration: none; border: 1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.04); transition: transform .15s ease, box-shadow .15s ease, border-color .15s ease; }}
 .aki-social:hover {{ transform: translateY(-2px); }}
 .aki-social-icon {{ font-size: 1rem; }}
 .aki-social-wa {{ color: #6fe08a; }}
@@ -337,12 +145,10 @@ st.markdown(f"""
 MAX_DURATION_SEC = 7 * 60  # 420s recomendados por Roblox
 DEFAULT_N = -29  # pitch ≈ 0.433
 
-
 def format_pitch(value):
     rounded = round(value, 3)
     s = f"{rounded:.3f}".rstrip('0').rstrip('.')
     return s if s else "0"
-
 
 N_MIN, N_MAX = -80, 24
 QT_VALUES = []
@@ -353,12 +159,10 @@ for n in range(N_MIN, N_MAX + 1):
 
 DEFAULT_IDX = DEFAULT_N - N_MIN
 
-
 def format_duracion(seg):
     m = int(seg // 60)
     s = int(seg % 60)
     return f"{m}:{s:02d}"
-
 
 # ----------------------------------------------------------------------------
 # ESTADO PERSISTENTE
@@ -370,16 +174,21 @@ if "audio_name" not in st.session_state:
 if "duracion_original" not in st.session_state:
     st.session_state.duracion_original = 0
 
+# ----------------------------------------------------------------------------
+# SUBIDA DE ARCHIVO (AHORA ACEPTA MÁS FORMATOS)
+# ----------------------------------------------------------------------------
 archivo_subido = st.file_uploader(
-    " ", type=["mp3", "wav", "ogg", "flac"], label_visibility="collapsed"
+    " ", type=["mp3", "wav", "ogg", "flac", "m4a", "aac", "opus", "webm",
+               "mp4", "mov", "avi", "mkv", "flv", "wmv", "3gp", "m4v"],
+    label_visibility="collapsed"
 )
 
 if archivo_subido is not None:
     if st.session_state.audio_name != archivo_subido.name:
         st.session_state.audio_data = archivo_subido.getvalue()
         st.session_state.audio_name = archivo_subido.name
-        # Lectura de metadatos únicamente (sin decodificar el audio ni usar ffmpeg)
-        # esto hace que el menú aparezca casi al instante tras subir el archivo.
+        
+        # Extraer duración con mutagen (o intentar con el navegador si falla)
         try:
             info = mutagen.File(io.BytesIO(st.session_state.audio_data))
             st.session_state.duracion_original = info.info.length if info else 0
@@ -387,8 +196,7 @@ if archivo_subido is not None:
             st.session_state.duracion_original = 0
 
 # ----------------------------------------------------------------------------
-# CONSEJOS Y RECOMENDACIONES (se muestran como notificaciones flotantes
-# dentro del reproductor, no como un menú aparte)
+# CONSEJOS Y RECOMENDACIONES
 # ----------------------------------------------------------------------------
 TIPS = [
     "Espera a que la música cargue por completo antes de tocar los sliders.",
@@ -402,6 +210,7 @@ TIPS = [
     "Prueba el audio convertido dentro de Roblox Studio antes de publicarlo en tu juego.",
     "Esta página no se hace responsable por baneos dentro de Roblox: el uso del audio es bajo tu responsabilidad.",
     "Únete a mi juego de Roblox y a la comunidad de Discord/WhatsApp para apoyar el proyecto.",
+    "Usa la función de RECORTE para eliminar anuncios o partes que no quieras de la canción.",
 ]
 
 # ----------------------------------------------------------------------------
@@ -410,267 +219,119 @@ TIPS = [
 if st.session_state.audio_data is not None:
     _loading_slot = st.empty()
     _loading_slot.markdown("""
-    <div style="position:relative; z-index:1; display:flex; flex-direction:column;
-                align-items:center; gap:14px; padding:48px 20px; text-align:center;">
-        <div style="width:52px; height:52px; border-radius:50%;
-                    border:3px solid rgba(139,92,246,0.18);
-                    border-top-color:#a882ff;
-                    animation: akiLoadSpin 0.85s linear infinite;"></div>
-        <div style="font-family:'JetBrains Mono', monospace; font-size:0.78rem;
-                    letter-spacing:1.5px; color:rgba(220,213,240,0.75);">
-            CARGANDO REPRODUCTOR Y OPCIONES DE TONO…
-        </div>
+    <div style="position:relative; z-index:1; display:flex; flex-direction:column; align-items:center; gap:14px; padding:48px 20px; text-align:center;">
+        <div style="width:52px; height:52px; border-radius:50%; border:3px solid rgba(139,92,246,0.18); border-top-color:#a882ff; animation: akiLoadSpin 0.85s linear infinite;"></div>
+        <div style="font-family:'JetBrains Mono', monospace; font-size:0.78rem; letter-spacing:1.5px; color:rgba(220,213,240,0.75);">CARGANDO REPRODUCTOR Y OPCIONES DE TONO…</div>
     </div>
-    <style>
-    @keyframes akiLoadSpin { to { transform: rotate(360deg); } }
-    </style>
+    <style>@keyframes akiLoadSpin { to { transform: rotate(360deg); } }</style>
     """, unsafe_allow_html=True)
 
     audio_b64 = base64.b64encode(st.session_state.audio_data).decode()
     duracion_original = st.session_state.duracion_original
     nombre_archivo = st.session_state.audio_name
     nombre_base = os.path.splitext(nombre_archivo)[0]
-    valores_js = "[" + ",".join(
-        [f'{{"n":{v["n"]},"pitch":{v["pitch"]},"texto":"{v["texto"]}"}}' for v in QT_VALUES]
-    ) + "]"
+    valores_js = "[" + ",".join([f'{{"n":{v["n"]},"pitch":{v["pitch"]},"texto":"{v["texto"]}"}}' for v in QT_VALUES]) + "]"
     tips_js = json.dumps(TIPS, ensure_ascii=False)
 
+    # La plantilla HTML se mantiene casi igual, pero con los nuevos IDs y
+    # lógica para el panel de recorte.
     TEMPLATE = r"""
 <!DOCTYPE html>
 <html>
 <head>
 <meta charset="utf-8">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/lamejs@1.2.1/lame.min.js" defer></script>
+<script src="https://unpkg.com/wasm-media-encoders@0.7.0/dist/umd/WasmMediaEncoder.min.js" defer></script>
 <style>
   * { box-sizing: border-box; }
-  body {
-      margin: 0; padding: 0; background: transparent;
-      font-family: 'Inter', sans-serif; color: #eae7f5;
-  }
+  body { margin: 0; padding: 0; background: transparent; font-family: 'Inter', sans-serif; color: #eae7f5; }
   :root {
-      --accent: #8b5cf6;
-      --accent-dim: rgba(139, 92, 246, 0.18);
-      --accent-strong: #a882ff;
-      --manual: #f0a63a;
-      --manual-dim: rgba(240, 166, 58, 0.16);
-      --danger: #ef4444;
-      --ok: #22c55e;
-      --line: rgba(255,255,255,0.08);
-      --panel: rgba(255,255,255,0.035);
-  }
-  @property --aki-angle {
-      syntax: '<angle>';
-      initial-value: 0deg;
-      inherits: false;
+      --accent: #8b5cf6; --accent-dim: rgba(139, 92, 246, 0.18); --accent-strong: #a882ff;
+      --manual: #f0a63a; --manual-dim: rgba(240, 166, 58, 0.16); --danger: #ef4444; --ok: #22c55e;
+      --line: rgba(255,255,255,0.08); --panel: rgba(255,255,255,0.035);
   }
   .container { padding: 10px 4px 14px 4px; }
   .card-halo {
-      position: relative;
-      border-radius: 22px;
-      padding: 1.5px;
+      position: relative; border-radius: 22px; padding: 1.5px;
       background: conic-gradient(from var(--aki-angle), #8b5cf6, #4ecdff 30%, #f0a63a 55%, #8b5cf6 80%, #8b5cf6);
-      animation: akiRotate 7s linear infinite;
-      box-shadow: 0 16px 44px rgba(0,0,0,0.5);
+      animation: akiRotate 7s linear infinite; box-shadow: 0 16px 44px rgba(0,0,0,0.5);
   }
   @keyframes akiRotate { to { --aki-angle: 360deg; } }
   .card {
-      position: relative;
-      background: linear-gradient(160deg, #16141d 0%, #0e0c12 100%);
-      border-radius: 20.5px;
-      padding: 26px 24px 22px 24px;
-      overflow: hidden;
+      position: relative; background: linear-gradient(160deg, #16141d 0%, #0e0c12 100%);
+      border-radius: 20.5px; padding: 26px 24px 22px 24px; overflow: hidden;
   }
-  .card::before {
-      content: "";
-      position: absolute; top: 0; left: 24px; right: 24px; height: 2px;
-      background: linear-gradient(90deg, transparent, var(--accent-strong), transparent);
-      opacity: 0.8;
-  }
-  .card::after {
-      content: "";
-      position: absolute; top: -60%; right: -30%; width: 60%; height: 160%;
-      background: radial-gradient(circle, rgba(139,92,246,0.10), transparent 65%);
-      pointer-events: none;
-  }
-  .track-header {
-      display: flex; align-items: center; justify-content: space-between;
-      margin-bottom: 18px; gap: 10px;
-  }
-  .filename {
-      font-size: 0.95rem; font-weight: 600; color: #f2eefc;
-      white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 62%;
-  }
-  .status {
-      font-family: 'JetBrains Mono', monospace; font-size: 0.68rem; font-weight: 600;
-      letter-spacing: 1.5px; color: var(--accent-strong);
-      border: 1px solid rgba(139,92,246,0.35); background: var(--accent-dim);
-      padding: 4px 10px; border-radius: 20px; display: flex; align-items: center; gap: 8px;
-      white-space: nowrap;
-  }
+  .card::before { content: ""; position: absolute; top: 0; left: 24px; right: 24px; height: 2px; background: linear-gradient(90deg, transparent, var(--accent-strong), transparent); opacity: 0.8; }
+  .card::after { content: ""; position: absolute; top: -60%; right: -30%; width: 60%; height: 160%; background: radial-gradient(circle, rgba(139,92,246,0.10), transparent 65%); pointer-events: none; }
+  .track-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; gap: 10px; }
+  .filename { font-size: 0.95rem; font-weight: 600; color: #f2eefc; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 62%; }
+  .status { font-family: 'JetBrains Mono', monospace; font-size: 0.68rem; font-weight: 600; letter-spacing: 1.5px; color: var(--accent-strong); border: 1px solid rgba(139,92,246,0.35); background: var(--accent-dim); padding: 4px 10px; border-radius: 20px; display: flex; align-items: center; gap: 8px; white-space: nowrap; }
   .status .dur { color: rgba(230,225,245,0.55); font-weight: 500; }
   .controls-row { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }
-  .btn {
-      font-family: 'Inter', sans-serif; font-weight: 600; font-size: 0.78rem;
-      letter-spacing: 0.5px; padding: 9px 16px; border-radius: 12px;
-      border: 1px solid var(--line); background: rgba(255,255,255,0.04); color: #d8d3ea;
-      cursor: pointer; transition: all .15s ease; white-space: nowrap;
-  }
+  .btn { font-family: 'Inter', sans-serif; font-weight: 600; font-size: 0.78rem; letter-spacing: 0.5px; padding: 9px 16px; border-radius: 12px; border: 1px solid var(--line); background: rgba(255,255,255,0.04); color: #d8d3ea; cursor: pointer; transition: all .15s ease; white-space: nowrap; }
   .btn:hover { background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.18); }
-  #modeBtn.is-manual {
-      background: var(--manual-dim); border-color: rgba(240,166,58,0.5); color: #ffcf8a;
-  }
-  #modeBtn.is-auto {
-      background: var(--accent-dim); border-color: rgba(139,92,246,0.5); color: #d9c8ff;
-  }
+  .btn.active { background: var(--accent-dim); border-color: rgba(139,92,246,0.5); color: #d9c8ff; }
+  #modeBtn.is-manual { background: var(--manual-dim); border-color: rgba(240,166,58,0.5); color: #ffcf8a; }
+  #modeBtn.is-auto { background: var(--accent-dim); border-color: rgba(139,92,246,0.5); color: #d9c8ff; }
 
   .slider-wrap { display: flex; flex-direction: column; gap: 12px; margin-bottom: 6px; }
   .slider-row { display: flex; align-items: center; gap: 14px; }
-  .slider-label {
-      font-family: 'JetBrains Mono', monospace; font-size: 0.66rem; font-weight: 700;
-      letter-spacing: 1.2px; color: rgba(220,213,240,0.55); width: 74px; flex-shrink: 0;
-  }
-  input[type=range] {
-      -webkit-appearance: none; appearance: none; height: 8px; border-radius: 6px;
-      background: rgba(255,255,255,0.08); outline: none; flex: 1; cursor: pointer;
-  }
-  input[type=range]::-webkit-slider-thumb {
-      -webkit-appearance: none; width: 26px; height: 26px; border-radius: 50%;
-      background: linear-gradient(145deg, #b298ff, #7c4dff);
-      border: 3px solid #0e0c12; box-shadow: 0 2px 8px rgba(139,92,246,0.6);
-      cursor: pointer; margin-top: -1px;
-  }
-  input[type=range]::-moz-range-thumb {
-      width: 22px; height: 22px; border-radius: 50%;
-      background: linear-gradient(145deg, #b298ff, #7c4dff);
-      border: 3px solid #0e0c12; box-shadow: 0 2px 8px rgba(139,92,246,0.6); cursor: pointer;
-  }
-  input[type=range].manual-slider::-webkit-slider-thumb {
-      background: linear-gradient(145deg, #ffcf8a, #f0a63a);
-      box-shadow: 0 2px 8px rgba(240,166,58,0.55);
-  }
-  input[type=range].manual-slider::-moz-range-thumb {
-      background: linear-gradient(145deg, #ffcf8a, #f0a63a);
-      box-shadow: 0 2px 8px rgba(240,166,58,0.55);
-  }
-  .pitch-info {
-      font-family: 'JetBrains Mono', monospace; font-size: 0.72rem;
-      color: rgba(220,213,240,0.8); line-height: 1.6; padding: 10px 12px;
-      background: var(--panel); border: 1px solid var(--line); border-radius: 12px; margin-top: 2px;
-  }
+  .slider-label { font-family: 'JetBrains Mono', monospace; font-size: 0.66rem; font-weight: 700; letter-spacing: 1.2px; color: rgba(220,213,240,0.55); width: 74px; flex-shrink: 0; }
+  input[type=range] { -webkit-appearance: none; appearance: none; height: 8px; border-radius: 6px; background: rgba(255,255,255,0.08); outline: none; flex: 1; cursor: pointer; }
+  input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 26px; height: 26px; border-radius: 50%; background: linear-gradient(145deg, #b298ff, #7c4dff); border: 3px solid #0e0c12; box-shadow: 0 2px 8px rgba(139,92,246,0.6); cursor: pointer; margin-top: -1px; }
+  input[type=range]::-moz-range-thumb { width: 22px; height: 22px; border-radius: 50%; background: linear-gradient(145deg, #b298ff, #7c4dff); border: 3px solid #0e0c12; box-shadow: 0 2px 8px rgba(139,92,246,0.6); cursor: pointer; }
+  input[type=range].manual-slider::-webkit-slider-thumb { background: linear-gradient(145deg, #ffcf8a, #f0a63a); box-shadow: 0 2px 8px rgba(240,166,58,0.55); }
+  input[type=range].manual-slider::-moz-range-thumb { background: linear-gradient(145deg, #ffcf8a, #f0a63a); box-shadow: 0 2px 8px rgba(240,166,58,0.55); }
+  .pitch-info { font-family: 'JetBrains Mono', monospace; font-size: 0.72rem; color: rgba(220,213,240,0.8); line-height: 1.6; padding: 10px 12px; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; margin-top: 2px; }
   .pitch-info b { color: #f2eefc; }
-  .inline-alert {
-      margin-top: 10px; padding: 10px 13px; border-radius: 12px;
-      font-size: 0.78rem; font-weight: 500; display: flex; align-items: center; gap: 8px;
-  }
-  .inline-alert.warn {
-      background: rgba(239,68,68,0.12); border: 1px solid rgba(239,68,68,0.4); color: #ff9d9d;
-  }
-  .inline-alert.ok {
-      background: rgba(34,197,94,0.10); border: 1px solid rgba(34,197,94,0.35); color: #8fe6ac;
-  }
-  .bottom-row {
-      display: flex; align-items: center; gap: 14px; margin-top: 18px;
-      padding-top: 16px; border-top: 1px solid var(--line); flex-wrap: wrap;
-  }
-  .vol-label {
-      font-family: 'JetBrains Mono', monospace; font-size: 0.66rem; font-weight: 700;
-      letter-spacing: 1px; color: rgba(220,213,240,0.55);
-  }
+  .inline-alert { margin-top: 10px; padding: 10px 13px; border-radius: 12px; font-size: 0.78rem; font-weight: 500; display: flex; align-items: center; gap: 8px; }
+  .inline-alert.warn { background: rgba(239,68,68,0.12); border: 1px solid rgba(239,68,68,0.4); color: #ff9d9d; }
+  .inline-alert.ok { background: rgba(34,197,94,0.10); border: 1px solid rgba(34,197,94,0.35); color: #8fe6ac; }
+  .bottom-row { display: flex; align-items: center; gap: 14px; margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--line); flex-wrap: wrap; }
+  .vol-label { font-family: 'JetBrains Mono', monospace; font-size: 0.66rem; font-weight: 700; letter-spacing: 1px; color: rgba(220,213,240,0.55); }
   input[type=range].vol-slider { max-width: 120px; height: 6px; }
   input[type=range].vol-slider::-webkit-slider-thumb { width: 18px; height: 18px; }
-  .vol-value {
-      font-family: 'JetBrains Mono', monospace; font-size: 0.72rem; color: rgba(220,213,240,0.7);
-      width: 38px;
-  }
+  .vol-value { font-family: 'JetBrains Mono', monospace; font-size: 0.72rem; color: rgba(220,213,240,0.7); width: 38px; }
   .format-group { display: flex; gap: 6px; margin-left: auto; }
-  .fmt-btn {
-      font-family: 'JetBrains Mono', monospace; font-size: 0.66rem; font-weight: 700;
-      padding: 7px 12px; border-radius: 8px; border: 1px solid var(--line);
-      background: rgba(255,255,255,0.03); color: rgba(220,213,240,0.55); cursor: pointer;
-      transition: all .15s ease;
-  }
+  .fmt-btn { font-family: 'JetBrains Mono', monospace; font-size: 0.66rem; font-weight: 700; padding: 7px 12px; border-radius: 8px; border: 1px solid var(--line); background: rgba(255,255,255,0.03); color: rgba(220,213,240,0.55); cursor: pointer; transition: all .15s ease; }
   .fmt-btn:hover { background: rgba(255,255,255,0.07); color: #eae7f5; }
-  .fmt-btn.active {
-      background: var(--accent-dim); border-color: rgba(139,92,246,0.5); color: #d9c8ff; cursor: default;
-  }
-  .convert-btn {
-      font-family: 'Inter', sans-serif; font-weight: 700; font-size: 0.85rem; letter-spacing: 0.5px;
-      padding: 11px 22px; border-radius: 12px; border: none; cursor: pointer;
-      background: linear-gradient(135deg, #a882ff, #7c4dff 60%, #5b34d6); color: white;
-      box-shadow: 0 6px 18px rgba(124,77,255,0.4); transition: transform .12s ease, box-shadow .12s ease;
-      width: 100%; margin-top: 14px;
-  }
+  .fmt-btn.active { background: var(--accent-dim); border-color: rgba(139,92,246,0.5); color: #d9c8ff; cursor: default; }
+  .convert-btn { font-family: 'Inter', sans-serif; font-weight: 700; font-size: 0.85rem; letter-spacing: 0.5px; padding: 11px 22px; border-radius: 12px; border: none; cursor: pointer; background: linear-gradient(135deg, #a882ff, #7c4dff 60%, #5b34d6); color: white; box-shadow: 0 6px 18px rgba(124,77,255,0.4); transition: transform .12s ease, box-shadow .12s ease; width: 100%; margin-top: 14px; }
   .convert-btn:hover { transform: translateY(-1px); box-shadow: 0 8px 22px rgba(124,77,255,0.55); }
   .convert-btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
   #audioHidden { display: none; }
 
-  .result-section { margin-top: 14px; }
-  .progress-bar {
-      width: 100%; height: 8px; border-radius: 6px; background: rgba(255,255,255,0.08);
-      overflow: hidden; margin-top: 6px;
-  }
-  .progress-fill {
-      height: 100%; width: 40%; border-radius: 6px;
-      background: linear-gradient(90deg, #7c4dff, #a882ff);
-      animation: slide 1.1s ease-in-out infinite;
-  }
-  @keyframes slide {
-      0% { margin-left: -40%; } 100% { margin-left: 100%; }
-  }
-  .result-card {
-      margin-top: 12px; padding: 16px; border-radius: 14px;
-      background: rgba(34,197,94,0.08); border: 1px solid rgba(34,197,94,0.3);
-  }
-  .result-title {
-      font-weight: 700; font-size: 0.85rem; color: #8fe6ac; margin-bottom: 8px;
-      display: flex; align-items: center; gap: 8px;
-  }
-  .result-info {
-      font-family: 'JetBrains Mono', monospace; font-size: 0.72rem;
-      color: rgba(220,240,225,0.75); line-height: 1.7; margin-bottom: 12px;
-  }
-  .download-link {
-      display: inline-flex; align-items: center; gap: 8px; text-decoration: none;
-      font-weight: 700; font-size: 0.8rem; padding: 10px 18px; border-radius: 10px;
-      background: linear-gradient(135deg, #34d16f, #22c55e); color: #06210f;
-      box-shadow: 0 4px 14px rgba(34,197,94,0.4);
-  }
+  /* 🔑 Estilos para el panel de recorte */
+  #trimPanel { margin-top: 16px; padding: 16px; background: rgba(255,255,255,0.03); border: 1px solid var(--line); border-radius: 14px; display: none; }
+  #waveformContainer { width: 100%; height: 100px; background: #0a0a0f; border-radius: 8px; position: relative; overflow: hidden; margin-bottom: 12px; }
+  #waveformCanvas { width: 100%; height: 100%; display: block; }
+  .trim-controls { display: flex; align-items: center; gap: 12px; margin-top: 12px; flex-wrap: wrap; }
+  .trim-time { font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; color: rgba(220,213,240,0.8); }
+  .trim-btn { font-family: 'Inter', sans-serif; font-weight: 600; font-size: 0.75rem; padding: 8px 16px; border-radius: 8px; border: 1px solid var(--line); background: rgba(255,255,255,0.04); color: #d8d3ea; cursor: pointer; transition: all .15s ease; }
+  .trim-btn:hover { background: rgba(255,255,255,0.08); }
+  .trim-btn.primary { background: var(--accent); border-color: var(--accent); color: white; }
+  .trim-btn.primary:hover { background: #7c4dff; }
+  .handle { position: absolute; top: 0; width: 10px; height: 100%; background: var(--accent); cursor: ew-resize; z-index: 10; }
+  .handle.left { left: 0; border-radius: 8px 0 0 8px; }
+  .handle.right { right: 0; border-radius: 0 8px 8px 0; }
+  .selection { position: absolute; top: 0; height: 100%; background: rgba(139,92,246,0.25); border-left: 2px solid var(--accent); border-right: 2px solid var(--accent); z-index: 5; }
 
-  /* "Notificación" flotante con consejos, tipo mensaje de celular */
-  .aki-toast {
-      position: fixed;
-      left: 14px; right: 14px; bottom: 18px;
-      max-width: 380px;
-      margin: 0 auto;
-      display: flex; align-items: center; gap: 10px;
-      background: linear-gradient(160deg, #201c2b, #14121a);
-      border: 1px solid rgba(139,92,246,0.35);
-      border-radius: 16px;
-      padding: 12px 14px;
-      box-shadow: 0 10px 30px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.03);
-      cursor: pointer;
-      opacity: 0;
-      transform: translateY(24px) scale(0.97);
-      pointer-events: none;
-      transition: opacity .35s ease, transform .35s ease;
-      z-index: 50;
-  }
-  .aki-toast.show {
-      opacity: 1;
-      transform: translateY(0) scale(1);
-      pointer-events: auto;
-  }
+  .result-section { margin-top: 14px; }
+  .progress-bar { width: 100%; height: 8px; border-radius: 6px; background: rgba(255,255,255,0.08); overflow: hidden; margin-top: 6px; }
+  .progress-fill { height: 100%; width: 40%; border-radius: 6px; background: linear-gradient(90deg, #7c4dff, #a882ff); animation: slide 1.1s ease-in-out infinite; }
+  @keyframes slide { 0% { margin-left: -40%; } 100% { margin-left: 100%; } }
+  .result-card { margin-top: 12px; padding: 16px; border-radius: 14px; background: rgba(34,197,94,0.08); border: 1px solid rgba(34,197,94,0.3); }
+  .result-title { font-weight: 700; font-size: 0.85rem; color: #8fe6ac; margin-bottom: 8px; display: flex; align-items: center; gap: 8px; }
+  .result-info { font-family: 'JetBrains Mono', monospace; font-size: 0.72rem; color: rgba(220,240,225,0.75); line-height: 1.7; margin-bottom: 12px; }
+  .download-link { display: inline-flex; align-items: center; gap: 8px; text-decoration: none; font-weight: 700; font-size: 0.8rem; padding: 10px 18px; border-radius: 10px; background: linear-gradient(135deg, #34d16f, #22c55e); color: #06210f; box-shadow: 0 4px 14px rgba(34,197,94,0.4); }
+
+  .aki-toast { position: fixed; left: 14px; right: 14px; bottom: 18px; max-width: 380px; margin: 0 auto; display: flex; align-items: center; gap: 10px; background: linear-gradient(160deg, #201c2b, #14121a); border: 1px solid rgba(139,92,246,0.35); border-radius: 16px; padding: 12px 14px; box-shadow: 0 10px 30px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.03); cursor: pointer; opacity: 0; transform: translateY(24px) scale(0.97); pointer-events: none; transition: opacity .35s ease, transform .35s ease; z-index: 50; }
+  .aki-toast.show { opacity: 1; transform: translateY(0) scale(1); pointer-events: auto; }
   .aki-toast-icon { font-size: 1.4rem; flex-shrink: 0; }
-  .aki-toast-text {
-      font-family: 'Inter', sans-serif; font-size: 0.78rem; line-height: 1.4;
-      color: rgba(235,230,245,0.92); flex: 1;
-  }
-  .aki-toast-close {
-      font-size: 0.75rem; color: rgba(220,213,240,0.4); flex-shrink: 0; padding-left: 4px;
-  }
-  @media (prefers-reduced-motion: reduce) {
-      .aki-toast { transition: opacity .2s linear; transform: none !important; }
-  }
+  .aki-toast-text { font-family: 'Inter', sans-serif; font-size: 0.78rem; line-height: 1.4; color: rgba(235,230,245,0.92); flex: 1; }
+  .aki-toast-close { font-size: 0.75rem; color: rgba(220,213,240,0.4); flex-shrink: 0; padding-left: 4px; }
+  @media (prefers-reduced-motion: reduce) { .aki-toast { transition: opacity .2s linear; transform: none !important; } }
 </style>
 </head>
 <body>
@@ -685,6 +346,25 @@ if st.session_state.audio_data is not None:
     <div class="controls-row">
       <button class="btn" id="previewBtn" onclick="togglePreview()">▶ ESCUCHAR</button>
       <button class="btn is-auto" id="modeBtn" onclick="toggleMode()">MANUAL</button>
+      <button class="btn" id="trimToggleBtn" onclick="toggleTrim()">✂️ RECORTAR</button>
+    </div>
+
+    <!-- Panel de Recorte (oculto por defecto) -->
+    <div id="trimPanel">
+      <div id="waveformContainer">
+        <canvas id="waveformCanvas"></canvas>
+        <div class="handle left" id="handleLeft"></div>
+        <div class="handle right" id="handleRight"></div>
+        <div class="selection" id="selection"></div>
+      </div>
+      <div class="trim-controls">
+        <span class="trim-time" id="trimStart">00:00.000</span>
+        <button class="trim-btn" onclick="playTrimmedSegment('start')">▶ Inicio</button>
+        <span class="trim-time" id="trimEnd">00:00.000</span>
+        <button class="trim-btn" onclick="playTrimmedSegment('end')">▶ Fin</button>
+        <button class="trim-btn primary" onclick="applyTrim()">APLICAR RECORTE</button>
+        <button class="trim-btn" onclick="removeTrim()">QUITAR RECORTE</button>
+      </div>
     </div>
 
     <div class="slider-wrap" id="autoSliderWrap" style="display:flex;">
@@ -735,8 +415,6 @@ if st.session_state.audio_data is not None:
   </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/lamejs@1.2.1/lame.min.js" defer></script>
-<script src="https://unpkg.com/wasm-media-encoders@0.7.0/dist/umd/WasmMediaEncoder.min.js" defer></script>
 <script>
 const VALUES = __VALORES_JS__;
 const DURACION_ORIGINAL = __DURACION_ORIGINAL__;
@@ -748,6 +426,12 @@ const ORIGINAL_AUDIO_SRC = "data:audio/mp3;base64," + AUDIO_B64;
 let mode = "auto";
 let selectedFormat = "ogg";
 let decodedBuffer = null;
+let trimmedBuffer = null; // Buffer con el recorte aplicado
+let trimStartTime = 0;
+let trimEndTime = 0;
+let isTrimming = false;
+let isDraggingLeft = false;
+let isDraggingRight = false;
 let manualPreviewUrl = null;
 let manualPreviewDirty = true;
 let manualDebounceTimer = null;
@@ -783,15 +467,24 @@ function base64ToArrayBuffer(b64) {
     try {
         const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         decodedBuffer = await audioCtx.decodeAudioData(base64ToArrayBuffer(AUDIO_B64));
+        // Inicializar el recorte con la duración completa
+        trimStartTime = 0;
+        trimEndTime = decodedBuffer.duration;
+        updateTrimUI();
+        drawWaveform();
     } catch (e) {
         console.error("Error decodificando audio:", e);
+        // Mostrar mensaje de error al usuario
+        document.getElementById("inlineAlert").innerHTML =
+            '<div class="inline-alert warn">⚠ No se pudo decodificar el audio. Es posible que el formato no sea compatible con tu navegador. Prueba con otro archivo o conviértelo a MP3 primero.</div>';
     }
 })();
 
 function formatDuracion(seg) {
     const m = Math.floor(seg / 60);
     const s = Math.floor(seg % 60);
-    return m + ":" + (s < 10 ? "0" : "") + s;
+    const ms = Math.floor((seg % 1) * 1000);
+    return m + ":" + (s < 10 ? "0" : "") + s + "." + String(ms).padStart(3, '0');
 }
 
 function updateFill(el) {
@@ -810,6 +503,203 @@ function setAlert(elId, dentro) {
     }
 }
 
+// ---------------- Lógica de Recorte ----------------
+
+function toggleTrim() {
+    isTrimming = !isTrimming;
+    const panel = document.getElementById("trimPanel");
+    const btn = document.getElementById("trimToggleBtn");
+    if (isTrimming) {
+        panel.style.display = "block";
+        btn.classList.add("active");
+        btn.textContent = "✅ CERRAR RECORTE";
+        // Asegurarse de que el buffer decodificado existe
+        if (!decodedBuffer) {
+            document.getElementById("inlineAlert").innerHTML =
+                '<div class="inline-alert warn">⚠ El audio aún no se ha decodificado. Espera un momento e intenta de nuevo.</div>';
+            toggleTrim(); // Cerrar
+            return;
+        }
+    } else {
+        panel.style.display = "none";
+        btn.classList.remove("active");
+        btn.textContent = "✂️ RECORTAR";
+    }
+}
+
+function drawWaveform() {
+    const canvas = document.getElementById("waveformCanvas");
+    const container = document.getElementById("waveformContainer");
+    if (!canvas || !decodedBuffer) return;
+    const ctx = canvas.getContext("2d");
+    const dpr = window.devicePixelRatio || 1;
+    const width = container.clientWidth;
+    const height = container.clientHeight;
+    canvas.width = width * dpr;
+    canvas.height = height * dpr;
+    ctx.scale(dpr, dpr);
+    ctx.clearRect(0, 0, width, height);
+
+    const data = decodedBuffer.getChannelData(0);
+    const step = Math.ceil(data.length / width);
+    const amp = height / 2;
+
+    ctx.beginPath();
+    ctx.moveTo(0, amp);
+    for (let i = 0; i < width; i++) {
+        let min = 1.0, max = -1.0;
+        for (let j = 0; j < step; j++) {
+            const idx = (i * step) + j;
+            if (idx < data.length) {
+                const datum = data[idx];
+                if (datum < min) min = datum;
+                if (datum > max) max = datum;
+            }
+        }
+        ctx.lineTo(i, (1 + min) * amp);
+        ctx.lineTo(i, (1 + max) * amp);
+    }
+    ctx.strokeStyle = "#8b5cf6";
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    // Dibujar la selección
+    const sel = document.getElementById("selection");
+    if (sel) {
+        const startPct = (trimStartTime / decodedBuffer.duration) * 100;
+        const endPct = (trimEndTime / decodedBuffer.duration) * 100;
+        sel.style.left = startPct + "%";
+        sel.style.width = (endPct - startPct) + "%";
+    }
+}
+
+function updateTrimUI() {
+    document.getElementById("trimStart").textContent = formatDuracion(trimStartTime);
+    document.getElementById("trimEnd").textContent = formatDuracion(trimEndTime);
+    const sel = document.getElementById("selection");
+    if (sel && decodedBuffer) {
+        const startPct = (trimStartTime / decodedBuffer.duration) * 100;
+        const endPct = (trimEndTime / decodedBuffer.duration) * 100;
+        sel.style.left = startPct + "%";
+        sel.style.width = (endPct - startPct) + "%";
+    }
+}
+
+function playTrimmedSegment(position) {
+    if (!decodedBuffer) return;
+    audioHidden.pause();
+    audioHidden.loop = false;
+    audioHidden.src = ORIGINAL_AUDIO_SRC;
+    audioHidden.playbackRate = 1;
+    audioHidden.preservesPitch = false;
+    audioHidden.currentTime = (position === 'start') ? trimStartTime : Math.max(0, trimEndTime - 3);
+    audioHidden.play();
+    // Detener la reproducción al llegar al final del segmento si es 'end'
+    if (position === 'end') {
+        const checkEnd = setInterval(() => {
+            if (audioHidden.currentTime >= trimEndTime) {
+                audioHidden.pause();
+                clearInterval(checkEnd);
+            }
+        }, 50);
+    }
+}
+
+function applyTrim() {
+    if (!decodedBuffer) return;
+    const startSample = Math.floor(trimStartTime * decodedBuffer.sampleRate);
+    const endSample = Math.floor(trimEndTime * decodedBuffer.sampleRate);
+    const length = endSample - startSample;
+    if (length <= 0) return;
+
+    const newBuffer = audioCtx.createBuffer(
+        decodedBuffer.numberOfChannels,
+        length,
+        decodedBuffer.sampleRate
+    );
+
+    for (let c = 0; c < decodedBuffer.numberOfChannels; c++) {
+        const channelData = decodedBuffer.getChannelData(c);
+        const newChannelData = newBuffer.getChannelData(c);
+        for (let i = 0; i < length; i++) {
+            newChannelData[i] = channelData[startSample + i];
+        }
+    }
+    trimmedBuffer = newBuffer;
+    // Actualizar la duración original que se usa en los cálculos
+    window.DURACION_ORIGINAL = trimmedBuffer.duration;
+    document.getElementById("inlineAlert").innerHTML =
+        '<div class="inline-alert ok">✅ Recorte aplicado. Ahora el audio dura ' + formatDuracion(trimmedBuffer.duration) + '.</div>';
+    // Actualizar el estado de la UI
+    document.querySelector(".status .dur").textContent = formatDuracion(trimmedBuffer.duration);
+    // Redibujar la forma de onda con el nuevo buffer
+    drawWaveform();
+    updateTrimUI();
+    // Cerrar panel de recorte
+    toggleTrim();
+}
+
+function removeTrim() {
+    trimmedBuffer = null;
+    window.DURACION_ORIGINAL = decodedBuffer.duration;
+    document.getElementById("inlineAlert").innerHTML =
+        '<div class="inline-alert ok">✅ Recorte eliminado. Se usará el audio completo.</div>';
+    document.querySelector(".status .dur").textContent = formatDuracion(decodedBuffer.duration);
+    drawWaveform();
+    updateTrimUI();
+}
+
+// ---------------- Manejo de los manejadores de recorte ----------------
+const handleLeft = document.getElementById("handleLeft");
+const handleRight = document.getElementById("handleRight");
+const waveformContainer = document.getElementById("waveformContainer");
+
+function getMouseX(e) {
+    const rect = waveformContainer.getBoundingClientRect();
+    return e.clientX - rect.left;
+}
+
+function startDrag(e, isLeft) {
+    isDraggingLeft = isLeft;
+    isDraggingRight = !isLeft;
+    e.preventDefault();
+    document.addEventListener("mousemove", onDrag);
+    document.addEventListener("mouseup", stopDrag);
+    document.addEventListener("touchmove", onDrag, { passive: false });
+    document.addEventListener("touchend", stopDrag);
+}
+
+function onDrag(e) {
+    if (!decodedBuffer) return;
+    e.preventDefault();
+    const x = getMouseX(e.touches ? e.touches[0] : e);
+    const pct = Math.max(0, Math.min(1, x / waveformContainer.clientWidth));
+    const time = pct * decodedBuffer.duration;
+
+    if (isDraggingLeft) {
+        trimStartTime = Math.min(time, trimEndTime - 0.1); // Mínimo 0.1s de diferencia
+    } else if (isDraggingRight) {
+        trimEndTime = Math.max(time, trimStartTime + 0.1);
+    }
+    updateTrimUI();
+}
+
+function stopDrag() {
+    isDraggingLeft = false;
+    isDraggingRight = false;
+    document.removeEventListener("mousemove", onDrag);
+    document.removeEventListener("mouseup", stopDrag);
+    document.removeEventListener("touchmove", onDrag);
+    document.removeEventListener("touchend", stopDrag);
+}
+
+handleLeft.addEventListener("mousedown", (e) => startDrag(e, true));
+handleRight.addEventListener("mousedown", (e) => startDrag(e, false));
+handleLeft.addEventListener("touchstart", (e) => startDrag(e, true), { passive: false });
+handleRight.addEventListener("touchstart", (e) => startDrag(e, false), { passive: false });
+
+// ---------------- Lógica de Pitch y Modos ----------------
+
 function applyPitch() {
     const idx = parseInt(document.getElementById("pitchIdx").value);
     const v = VALUES[idx];
@@ -820,7 +710,7 @@ function applyPitch() {
     audioHidden.webkitPreservesPitch = false;
 
     const semitonos = (v.n / 2).toFixed(1);
-    const duracionSalida = DURACION_ORIGINAL * pitchVal;
+    const duracionSalida = (trimmedBuffer ? trimmedBuffer.duration : DURACION_ORIGINAL) * pitchVal;
 
     document.getElementById("pitchInfo").innerHTML =
         "PITCH: <b>" + v.texto + "</b> &nbsp;|&nbsp; SEMITONOS: <b>" + semitonos + "</b><br>" +
@@ -834,7 +724,7 @@ function applyPitch() {
 function applyManualInfo() {
     const speedVal = parseFloat(document.getElementById("speedSlider").value);
     const toneVal = parseFloat(document.getElementById("toneSlider").value);
-    const duracionSalida = DURACION_ORIGINAL / speedVal;
+    const duracionSalida = (trimmedBuffer ? trimmedBuffer.duration : DURACION_ORIGINAL) / speedVal;
 
     document.getElementById("manualInfo").innerHTML =
         "VELOCIDAD: <b>" + speedVal.toFixed(2) + "x</b> &nbsp;|&nbsp; TONO: <b>" + (toneVal > 0 ? "+" : "") + toneVal + " st</b><br>" +
@@ -1170,15 +1060,16 @@ async function convertir() {
         const volVal = parseFloat(document.getElementById("volSlider").value);
         let renderedBufferLike;
         let sufijo, robloxTexto;
+        const sourceBuffer = trimmedBuffer || decodedBuffer;
 
         if (mode === "auto") {
             const idx = parseInt(document.getElementById("pitchIdx").value);
             const pitchVal = VALUES[idx].pitch;
             const factor = 1 / pitchVal;
-            const newLength = Math.floor(decodedBuffer.length / factor);
-            const offlineCtx = new OfflineAudioContext(decodedBuffer.numberOfChannels, newLength, decodedBuffer.sampleRate);
+            const newLength = Math.floor(sourceBuffer.length / factor);
+            const offlineCtx = new OfflineAudioContext(sourceBuffer.numberOfChannels, newLength, sourceBuffer.sampleRate);
             const source = offlineCtx.createBufferSource();
-            source.buffer = decodedBuffer;
+            source.buffer = sourceBuffer;
             source.playbackRate.value = factor;
             const gainNode = offlineCtx.createGain();
             gainNode.gain.value = volVal;
@@ -1190,15 +1081,15 @@ async function convertir() {
         } else {
             const semitones = parseFloat(document.getElementById("toneSlider").value);
             const speedVal = parseFloat(document.getElementById("speedSlider").value);
-            const numCh = decodedBuffer.numberOfChannels;
+            const numCh = sourceBuffer.numberOfChannels;
             const channels = [];
-            for (let c = 0; c < numCh; c++) channels.push(decodedBuffer.getChannelData(c).slice());
+            for (let c = 0; c < numCh; c++) channels.push(sourceBuffer.getChannelData(c).slice());
             const processed = processManual(channels, semitones, speedVal);
             for (let c = 0; c < processed.length; c++) {
                 for (let i = 0; i < processed[c].length; i++) processed[c][i] *= volVal;
             }
             renderedBufferLike = {
-                numberOfChannels: numCh, sampleRate: decodedBuffer.sampleRate,
+                numberOfChannels: numCh, sampleRate: sourceBuffer.sampleRate,
                 length: processed[0].length, getChannelData: (i) => processed[i]
             };
             sufijo = "t" + semitones + "_v" + speedVal.toFixed(2);
@@ -1211,7 +1102,6 @@ async function convertir() {
             const nombreFinal = NOMBRE_BASE + "_" + sufijo + "." + ext;
             const durFinal = renderedBufferLike.length / renderedBufferLike.sampleRate;
 
-            // Descarga automática apenas el archivo está listo (sin exigir un segundo clic)
             const autoLink = document.createElement("a");
             autoLink.href = url;
             autoLink.download = nombreFinal;
@@ -1250,6 +1140,7 @@ async function convertir() {
     }
 }
 
+// ---------------- Event Listeners Globales ----------------
 document.getElementById("volSlider").addEventListener("input", function () {
     document.getElementById("volValue").textContent = Math.round(this.value * 100) + "%";
     updateFill(this);
@@ -1268,8 +1159,10 @@ document.getElementById("toneSlider").addEventListener("input", function () {
     scheduleManualRefresh();
 });
 
+// Inicializar valores
 applyPitch();
 updateFill(document.getElementById("volSlider"));
+drawWaveform(); // Dibujar la forma de onda inicial
 
 // ---------------- Notificaciones con consejos (tipo mensaje de celular) ----------------
 
@@ -1324,5 +1217,5 @@ scheduleNextTip();
         .replace("__AUDIO_B64__", audio_b64)
     )
 
-    components.html(html_player, height=760, scrolling=False)
+    components.html(html_player, height=800, scrolling=False)
     _loading_slot.empty()
