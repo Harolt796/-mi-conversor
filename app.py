@@ -323,20 +323,88 @@ if st.session_state.audio_data is not None:
   .convert-btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
   #audioHidden { display: none; }
 
-  /* Panel de recorte */
+  /* ========== PANEL DE RECORTE MEJORADO ========== */
   #trimPanel { margin-top: 16px; padding: 16px; background: rgba(255,255,255,0.03); border: 1px solid var(--line); border-radius: 14px; display: none; }
-  #waveformContainer { width: 100%; height: 100px; background: #0a0a0f; border-radius: 8px; position: relative; overflow: hidden; margin-bottom: 12px; }
+  #waveformContainer {
+      width: 100%; height: 110px; background: #0a0a0f; border-radius: 8px;
+      position: relative; overflow: hidden; margin-bottom: 12px;
+      border: 1px solid rgba(139,92,246,0.2);
+  }
   #waveformCanvas { width: 100%; height: 100%; display: block; }
-  .trim-controls { display: flex; align-items: center; gap: 12px; margin-top: 12px; flex-wrap: wrap; }
-  .trim-time { font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; color: rgba(220,213,240,0.8); }
-  .trim-btn { font-family: 'Inter', sans-serif; font-weight: 600; font-size: 0.75rem; padding: 8px 16px; border-radius: 8px; border: 1px solid var(--line); background: rgba(255,255,255,0.04); color: #d8d3ea; cursor: pointer; transition: all .15s ease; }
-  .trim-btn:hover { background: rgba(255,255,255,0.08); }
-  .trim-btn.primary { background: var(--accent); border-color: var(--accent); color: white; }
-  .trim-btn.primary:hover { background: #7c4dff; }
-  .handle { position: absolute; top: 0; width: 10px; height: 100%; background: var(--accent); cursor: ew-resize; z-index: 10; }
-  .handle.left { left: 0; border-radius: 8px 0 0 8px; }
-  .handle.right { right: 0; border-radius: 0 8px 8px 0; }
-  .selection { position: absolute; top: 0; height: 100%; background: rgba(139,92,246,0.25); border-left: 2px solid var(--accent); border-right: 2px solid var(--accent); z-index: 5; }
+
+  .trim-controls { display: flex; align-items: center; gap: 10px; margin-top: 12px; flex-wrap: wrap; }
+  .trim-time {
+      font-family: 'JetBrains Mono', monospace; font-size: 0.72rem;
+      color: rgba(220,213,240,0.9); background: rgba(0,0,0,0.4);
+      padding: 6px 10px; border-radius: 6px; border: 1px solid var(--line);
+      min-width: 84px; text-align: center;
+  }
+  .trim-btn {
+      font-family: 'Inter', sans-serif; font-weight: 600; font-size: 0.75rem;
+      padding: 8px 14px; border-radius: 8px; border: 1px solid var(--line);
+      background: rgba(255,255,255,0.04); color: #d8d3ea; cursor: pointer;
+      transition: all .15s ease;
+  }
+  .trim-btn:hover { background: rgba(255,255,255,0.08); border-color: rgba(139,92,246,0.4); }
+  .trim-btn.primary { background: linear-gradient(135deg, #a882ff, #7c4dff); border-color: transparent; color: white; }
+  .trim-btn.primary:hover { background: linear-gradient(135deg, #c4b5fd, #8b5cf6); box-shadow: 0 0 16px rgba(139,92,246,0.6); }
+
+  /* 🔑 Handles que se mueven correctamente */
+  .handle {
+      position: absolute;
+      top: 0;
+      width: 16px;
+      height: 100%;
+      background: linear-gradient(180deg, #a882ff, #7c4dff);
+      cursor: ew-resize;
+      z-index: 20;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transform: translateX(-50%);
+      box-shadow: 0 0 10px rgba(139,92,246,0.7);
+      transition: box-shadow .15s ease, background .15s ease;
+      touch-action: none;
+      user-select: none;
+      -webkit-user-select: none;
+  }
+  .handle::after {
+      content: "";
+      width: 2px;
+      height: 55%;
+      background: rgba(255,255,255,0.85);
+      border-radius: 1px;
+      box-shadow: 0 0 4px rgba(255,255,255,0.7);
+  }
+  /* Zona invisible extra para agarrar más fácil */
+  .handle::before {
+      content: "";
+      position: absolute;
+      top: 0; bottom: 0;
+      left: -12px; right: -12px;
+      z-index: -1;
+  }
+  .handle:hover {
+      background: linear-gradient(180deg, #c4b5fd, #8b5cf6);
+      box-shadow: 0 0 18px rgba(168,130,255,1);
+  }
+  .handle.dragging {
+      background: linear-gradient(180deg, #c4b5fd, #8b5cf6);
+      box-shadow: 0 0 22px rgba(168,130,255,1);
+  }
+  .handle.left { border-radius: 4px; }
+  .handle.right { border-radius: 4px; }
+
+  .selection {
+      position: absolute;
+      top: 0;
+      height: 100%;
+      background: rgba(139,92,246,0.22);
+      border-top: 2px solid var(--accent);
+      border-bottom: 2px solid var(--accent);
+      z-index: 5;
+      pointer-events: none;
+  }
 
   .result-section { margin-top: 14px; }
   .progress-bar { width: 100%; height: 8px; border-radius: 6px; background: rgba(255,255,255,0.08); overflow: hidden; margin-top: 6px; }
@@ -373,9 +441,9 @@ if st.session_state.audio_data is not None:
     <div id="trimPanel">
       <div id="waveformContainer">
         <canvas id="waveformCanvas"></canvas>
+        <div class="selection" id="selection"></div>
         <div class="handle left" id="handleLeft"></div>
         <div class="handle right" id="handleRight"></div>
-        <div class="selection" id="selection"></div>
       </div>
       <div class="trim-controls">
         <span class="trim-time" id="trimStart">00:00.000</span>
@@ -506,6 +574,12 @@ function formatDuracion(seg) {
     return m + ":" + (s < 10 ? "0" : "") + s + "." + String(ms).padStart(3, '0');
 }
 
+function formatDuracionSimple(seg) {
+    const m = Math.floor(seg / 60);
+    const s = Math.floor(seg % 60);
+    return m + ":" + (s < 10 ? "0" : "") + s;
+}
+
 function updateFill(el) {
     const min = parseFloat(el.min), max = parseFloat(el.max), val = parseFloat(el.value);
     const pct = ((val - min) / (max - min)) * 100;
@@ -522,7 +596,7 @@ function setAlert(elId, dentro) {
     }
 }
 
-// ---------------- Lógica de Recorte ----------------
+// ==================== RECORTE ====================
 
 function toggleTrim() {
     isTrimming = !isTrimming;
@@ -538,7 +612,11 @@ function toggleTrim() {
             toggleTrim();
             return;
         }
-        drawWaveform();
+        // 🔑 Redibujar la onda y los handles al abrir
+        setTimeout(() => {
+            drawWaveform();
+            updateTrimUI();
+        }, 30);
     } else {
         panel.style.display = "none";
         btn.classList.remove("active");
@@ -549,17 +627,30 @@ function toggleTrim() {
 function drawWaveform() {
     const canvas = document.getElementById("waveformCanvas");
     const container = document.getElementById("waveformContainer");
-    if (!canvas || !decodedBuffer) return;
+    if (!canvas || !decodedBuffer || !container) return;
     const ctx = canvas.getContext("2d");
     const dpr = window.devicePixelRatio || 1;
     const width = container.clientWidth;
     const height = container.clientHeight;
+    if (width === 0 || height === 0) return;
     canvas.width = width * dpr;
     canvas.height = height * dpr;
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.scale(dpr, dpr);
     ctx.clearRect(0, 0, width, height);
 
+    // Fondo
+    ctx.fillStyle = "#0a0a0f";
+    ctx.fillRect(0, 0, width, height);
+
+    // Línea central
+    ctx.strokeStyle = "rgba(139,92,246,0.15)";
+    ctx.beginPath();
+    ctx.moveTo(0, height / 2);
+    ctx.lineTo(width, height / 2);
+    ctx.stroke();
+
+    // Onda
     const data = decodedBuffer.getChannelData(0);
     const step = Math.ceil(data.length / width);
     const amp = height / 2;
@@ -584,15 +675,23 @@ function drawWaveform() {
     ctx.stroke();
 }
 
+// 🔑 ACTUALIZACIÓN CLAVE: los handles se mueven con la selección
 function updateTrimUI() {
     document.getElementById("trimStart").textContent = formatDuracion(trimStartTime);
     document.getElementById("trimEnd").textContent = formatDuracion(trimEndTime);
     const sel = document.getElementById("selection");
-    if (sel && decodedBuffer) {
-        const startPct = (trimStartTime / decodedBuffer.duration) * 100;
-        const endPct = (trimEndTime / decodedBuffer.duration) * 100;
+    const hl = document.getElementById("handleLeft");
+    const hr = document.getElementById("handleRight");
+    if (sel && hl && hr && decodedBuffer) {
+        const dur = decodedBuffer.duration;
+        const startPct = (trimStartTime / dur) * 100;
+        const endPct = (trimEndTime / dur) * 100;
+        // Selección visible
         sel.style.left = startPct + "%";
         sel.style.width = (endPct - startPct) + "%";
+        // 🔑 MANEJADORES: ahora sí se mueven
+        hl.style.left = startPct + "%";
+        hr.style.left = endPct + "%";
     }
 }
 
@@ -605,9 +704,10 @@ function playTrimmedSegment(position) {
     audioHidden.preservesPitch = false;
     audioHidden.currentTime = (position === 'start') ? trimStartTime : Math.max(0, trimEndTime - 3);
     audioHidden.play();
+    document.getElementById("previewBtn").textContent = "⏸ PAUSA";
     if (position === 'end') {
         const checkEnd = setInterval(() => {
-            if (audioHidden.currentTime >= trimEndTime) {
+            if (audioHidden.currentTime >= trimEndTime || audioHidden.paused) {
                 audioHidden.pause();
                 clearInterval(checkEnd);
             }
@@ -636,61 +736,64 @@ function applyTrim() {
         }
     }
     trimmedBuffer = newBuffer;
-    window.DURACION_ORIGINAL = trimmedBuffer.duration;
     document.getElementById("inlineAlert").innerHTML =
-        '<div class="inline-alert ok">✅ Recorte aplicado. Ahora el audio dura ' + formatDuracion(trimmedBuffer.duration) + '.</div>';
-    document.querySelector(".status .dur").textContent = format_duracion_simple(trimmedBuffer.duration);
+        '<div class="inline-alert ok">✅ Recorte aplicado. Ahora el audio dura ' + formatDuracionSimple(trimmedBuffer.duration) + '.</div>';
+    document.querySelector(".status .dur").textContent = formatDuracionSimple(trimmedBuffer.duration);
     applyPitch();
     toggleTrim();
-}
-
-function format_duracion_simple(seg) {
-    const m = Math.floor(seg / 60);
-    const s = Math.floor(seg % 60);
-    return m + ":" + (s < 10 ? "0" : "") + s;
 }
 
 function removeTrim() {
     if (!decodedBuffer) return;
     trimmedBuffer = null;
-    window.DURACION_ORIGINAL = decodedBuffer.duration;
     document.getElementById("inlineAlert").innerHTML =
         '<div class="inline-alert ok">✅ Recorte eliminado. Se usará el audio completo.</div>';
-    document.querySelector(".status .dur").textContent = format_duracion_simple(decodedBuffer.duration);
+    document.querySelector(".status .dur").textContent = formatDuracionSimple(decodedBuffer.duration);
+    // Resetear handles al estado inicial
+    trimStartTime = 0;
+    trimEndTime = decodedBuffer.duration;
+    updateTrimUI();
     applyPitch();
 }
 
-// Manejo de manejadores
+// Manejo de manejadores (con soporte para mouse y touch)
 const handleLeft = document.getElementById("handleLeft");
 const handleRight = document.getElementById("handleRight");
 const waveformContainer = document.getElementById("waveformContainer");
 
-function getMouseX(e) {
+function getEventX(e) {
     const rect = waveformContainer.getBoundingClientRect();
-    return e.clientX - rect.left;
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    return clientX - rect.left;
 }
 
 function startDrag(e, isLeft) {
     isDraggingLeft = isLeft;
     isDraggingRight = !isLeft;
     e.preventDefault();
+    e.stopPropagation();
+    const handleEl = isLeft ? handleLeft : handleRight;
+    handleEl.classList.add("dragging");
     document.addEventListener("mousemove", onDrag);
     document.addEventListener("mouseup", stopDrag);
     document.addEventListener("touchmove", onDrag, { passive: false });
     document.addEventListener("touchend", stopDrag);
+    document.addEventListener("touchcancel", stopDrag);
 }
 
 function onDrag(e) {
-    if (!decodedBuffer) return;
+    if (!decodedBuffer || !waveformContainer) return;
     e.preventDefault();
-    const x = getMouseX(e.touches ? e.touches[0] : e);
+    const x = getEventX(e);
     const pct = Math.max(0, Math.min(1, x / waveformContainer.clientWidth));
     const time = pct * decodedBuffer.duration;
 
     if (isDraggingLeft) {
         trimStartTime = Math.min(time, trimEndTime - 0.1);
+        if (trimStartTime < 0) trimStartTime = 0;
     } else if (isDraggingRight) {
         trimEndTime = Math.max(time, trimStartTime + 0.1);
+        if (trimEndTime > decodedBuffer.duration) trimEndTime = decodedBuffer.duration;
     }
     updateTrimUI();
 }
@@ -698,10 +801,13 @@ function onDrag(e) {
 function stopDrag() {
     isDraggingLeft = false;
     isDraggingRight = false;
+    handleLeft.classList.remove("dragging");
+    handleRight.classList.remove("dragging");
     document.removeEventListener("mousemove", onDrag);
     document.removeEventListener("mouseup", stopDrag);
     document.removeEventListener("touchmove", onDrag);
     document.removeEventListener("touchend", stopDrag);
+    document.removeEventListener("touchcancel", stopDrag);
 }
 
 handleLeft.addEventListener("mousedown", (e) => startDrag(e, true));
@@ -709,7 +815,7 @@ handleRight.addEventListener("mousedown", (e) => startDrag(e, false));
 handleLeft.addEventListener("touchstart", (e) => startDrag(e, true), { passive: false });
 handleRight.addEventListener("touchstart", (e) => startDrag(e, false), { passive: false });
 
-// ---------------- Modos y Pitch ----------------
+// ==================== MODOS Y PITCH ====================
 
 function applyPitch() {
     const idx = parseInt(document.getElementById("pitchIdx").value);
@@ -726,7 +832,7 @@ function applyPitch() {
 
     document.getElementById("pitchInfo").innerHTML =
         "PITCH: <b>" + v.texto + "</b> &nbsp;|&nbsp; SEMITONOS: <b>" + semitonos + "</b><br>" +
-        "DURACIÓN ESTIMADA: <b>" + formatDuracion(duracionSalida) + "</b><br>" +
+        "DURACIÓN ESTIMADA: <b>" + formatDuracionSimple(duracionSalida) + "</b><br>" +
         "ROBLOX &middot; PlaybackSpeed = <b>" + v.texto + "</b> (para restaurar el audio original)";
 
     setAlert("inlineAlert", duracionSalida <= MAX_DUR);
@@ -741,7 +847,7 @@ function applyManualInfo() {
 
     document.getElementById("manualInfo").innerHTML =
         "VELOCIDAD: <b>" + speedVal.toFixed(2) + "x</b> &nbsp;|&nbsp; TONO: <b>" + (toneVal > 0 ? "+" : "") + toneVal + " st</b><br>" +
-        "DURACIÓN ESTIMADA: <b>" + formatDuracion(duracionSalida) + "</b><br>" +
+        "DURACIÓN ESTIMADA: <b>" + formatDuracionSimple(duracionSalida) + "</b><br>" +
         "ROBLOX &middot; PlaybackSpeed = <b>1</b> (el tono y la velocidad ya quedan aplicados en el archivo)";
 
     setAlert("inlineAlert", duracionSalida <= MAX_DUR);
@@ -790,7 +896,7 @@ function togglePreview() {
     }
 }
 
-// ---------------- DSP ----------------
+// ==================== DSP ====================
 
 function hannWindow(size) {
     const w = new Float32Array(size);
@@ -858,7 +964,7 @@ function processManual(channelsData, semitones, speedFactor) {
     return channelsData.map(ch => speedStretch(pitchShift(ch, semitones), speedFactor));
 }
 
-// ---------------- Codificación MP3 ----------------
+// ==================== CODIFICACIÓN ====================
 
 function encodeMP3(audioBuffer, kbps) {
     const numChannels = audioBuffer.numberOfChannels;
@@ -894,8 +1000,6 @@ function encodeMP3(audioBuffer, kbps) {
 
     return new Blob(mp3Data, { type: "audio/mp3" });
 }
-
-// ---------------- Codificación WAV ----------------
 
 function encodeWAV(audioBuffer) {
     const numChannels = audioBuffer.numberOfChannels;
@@ -941,8 +1045,6 @@ function encodeWAV(audioBuffer) {
 
     return new Blob([buffer], { type: "audio/wav" });
 }
-
-// ---------------- Codificación OGG ----------------
 
 async function encodeOGG(audioBuffer) {
     if (typeof WasmMediaEncoder === "undefined") {
@@ -1118,7 +1220,7 @@ async function convertir() {
 
             document.getElementById("resultSection").innerHTML =
                 '<div class="result-card">' +
-                  '<div class="result-title">✔ Descargado &middot; ' + formatDuracion(durFinal) + '</div>' +
+                  '<div class="result-title">✔ Descargado &middot; ' + formatDuracionSimple(durFinal) + '</div>' +
                   '<div class="result-info">' + robloxTexto + '</div>' +
                   '<a class="download-link" id="dlLink" href="' + url + '" download="' + nombreFinal + '">⬇ Volver a descargar</a>' +
                   '<audio controls style="display:block; margin-top:10px; width:100%; height:34px;" src="' + url + '"></audio>' +
@@ -1168,7 +1270,15 @@ document.getElementById("toneSlider").addEventListener("input", function () {
 applyPitch();
 updateFill(document.getElementById("volSlider"));
 
-// ---------------- Notificaciones con consejos ----------------
+// Redibujar onda al cambiar tamaño de ventana
+window.addEventListener("resize", () => {
+    if (isTrimming) {
+        drawWaveform();
+        updateTrimUI();
+    }
+});
+
+// ==================== TOASTS ====================
 
 const TIPS = __TIPS_JS__;
 let toastAutoHideTimer = null;
