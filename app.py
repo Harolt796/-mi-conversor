@@ -436,9 +436,8 @@ let manualDebounceTimer = null;
 let globalAudioCtx = null;
 let justDragged = false;
 
-// 🔑 NUEVA LÓGICA DE PITCH
-let currentPitchRate = 1;   // Rate actual = 1/pitch
-let pitchBeforeTrim = 1;    // Guarda el rate antes de entrar a modo edición
+let currentPitchRate = 1;
+let pitchBeforeTrim = 1;
 
 function getActiveBuffer() {
     return trimmedBuffer || decodedBuffer;
@@ -448,13 +447,18 @@ function getActiveDuration() {
     return b ? b.duration : 0;
 }
 
-// 🔑 Aplica el rate al audio SIN perder el pitch (preservesPitch = false)
+// 🔑 Cuando estamos en modo edición, la reproducción se limita al rango
+function isEditingRange() {
+    return isTrimming && !trimApplied;
+}
+
 function applyPlaybackRate() {
     audioHidden.preservesPitch = false;
     audioHidden.mozPreservesPitch = false;
     audioHidden.webkitPreservesPitch = false;
     audioHidden.msPreservesPitch = false;
-    audioHidden.playbackRate = currentPitchRate;
+    // 🔑 En modo edición forzamos rate=1 (sin pitch)
+    audioHidden.playbackRate = isEditingRange() ? 1 : currentPitchRate;
 }
 
 function setFormat(fmt) {
@@ -477,7 +481,6 @@ audioHidden.addEventListener("ended", () => {
     document.getElementById("previewBtn").textContent = "▶ ESCUCHAR";
 });
 
-// 🔑 Reaplicar el pitch cuando el audio termina de cargar un nuevo src
 audioHidden.addEventListener("loadedmetadata", () => {
     applyPlaybackRate();
     const totalEl = document.getElementById("totalTime");
@@ -485,26 +488,26 @@ audioHidden.addEventListener("loadedmetadata", () => {
     if (totalEl && buf) totalEl.textContent = formatDuracion(buf.duration);
 });
 
-// 🔑 Reaplicar el pitch cuando el audio empieza a sonar (por si el navegador lo resetea)
 audioHidden.addEventListener("play", () => {
     applyPlaybackRate();
 });
 
-// 🔑 timeupdate: usa el buffer activo
+// 🔑 timeupdate: fuerza la posición dentro del rango y hace loop
 audioHidden.addEventListener("timeupdate", () => {
     const buf = getActiveBuffer();
     if (!buf) return;
     let pos = audioHidden.currentTime;
     const dur = buf.duration;
 
-    // En modo recorte (panel abierto y sin corte aplicado), restringir a la selección
-    if (isTrimming && !trimApplied) {
-        if (pos < trimStartTime - 0.05) {
+    if (isEditingRange()) {
+        // Si está antes del inicio del corte → saltar al inicio
+        if (pos < trimStartTime - 0.02) {
             pos = trimStartTime;
             try { audioHidden.currentTime = pos; } catch(e) {}
-        } else if (pos > trimEndTime) {
-            pos = trimEndTime;
-            audioHidden.pause();
+        }
+        // Si llega al final del corte → loop al inicio (para escuchar en loop el fragmento)
+        else if (pos >= trimEndTime - 0.02) {
+            pos = trimStartTime;
             try { audioHidden.currentTime = pos; } catch(e) {}
         }
     }
@@ -531,7 +534,6 @@ function base64ToArrayBuffer(b64) {
         decodedBuffer = await globalAudioCtx.decodeAudioData(base64ToArrayBuffer(AUDIO_B64));
         trimStartTime = 0;
         trimEndTime = decodedBuffer.duration;
-        // Inicializar el pitch
         const idx = parseInt(document.getElementById("pitchIdx").value);
         currentPitchRate = 1 / VALUES[idx].pitch;
         applyPlaybackRate();
@@ -577,9 +579,6 @@ function setAlert(elId, dentro) {
     }
 }
 
-// ============================================================
-// BLOQUEO DE CONTROLES
-// ============================================================
 function updateControlsDisabled() {
     const section = document.getElementById("pitchSection");
     const modeBtn = document.getElementById("modeBtn");
@@ -611,15 +610,11 @@ function updateTrimButtonState() {
     }
 }
 
-// ============================================================
-// RECORTE
-// ============================================================
 function toggleTrim() {
     isTrimming = !isTrimming;
     const panel = document.getElementById("trimPanel");
 
     if (isTrimming) {
-        // 🔑 GUARDAR EL PITCH ACTUAL Y FORZAR VELOCIDAD NORMAL
         pitchBeforeTrim = currentPitchRate;
         audioHidden.preservesPitch = false;
         audioHidden.mozPreservesPitch = false;
@@ -644,7 +639,6 @@ function toggleTrim() {
             updateTrimUI();
         }, 30);
     } else {
-        // 🔑 CANCELAR: restaurar el pitch que había antes
         currentPitchRate = pitchBeforeTrim;
         applyPlaybackRate();
         panel.style.display = "none";
@@ -729,11 +723,10 @@ function updateTrimUI() {
     }
 }
 
+// 🔑 playFromPosition: si estamos en modo edición, fuerza dentro del rango
 async function playFromPosition(time, forcePlay) {
-    // Si estamos en modo edición, el rate es 1. Si no, es currentPitchRate.
-    const targetRate = isTrimming ? 1 : currentPitchRate;
+    const targetRate = isEditingRange() ? 1 : currentPitchRate;
 
-    // Esperar a que el audio esté listo si es necesario
     if (audioHidden.readyState < 1) {
         await new Promise((resolve) => {
             audioHidden.addEventListener("loadedmetadata", resolve, { once: true });
@@ -741,19 +734,22 @@ async function playFromPosition(time, forcePlay) {
         });
     }
 
-    // 🔑 Aplicar el rate correcto
     audioHidden.preservesPitch = false;
     audioHidden.mozPreservesPitch = false;
     audioHidden.webkitPreservesPitch = false;
     audioHidden.msPreservesPitch = false;
     audioHidden.playbackRate = targetRate;
 
+    // 🔑 CLAMP: si estamos en modo edición, forzar dentro del rango
+    if (isEditingRange()) {
+        time = Math.max(trimStartTime, Math.min(trimEndTime - 0.02, time));
+    }
+
     try { audioHidden.currentTime = time; } catch(e) {}
 
     if (forcePlay) {
         try {
             await audioHidden.play();
-            // 🔑 Reforzar el rate después del play (algunos navegadores lo resetean)
             audioHidden.playbackRate = targetRate;
             document.getElementById("previewBtn").textContent = "⏸ PAUSA";
         } catch(e) { console.error(e); }
@@ -764,16 +760,14 @@ function playTrimmedSegment(position) {
     const buf = getActiveBuffer();
     if (!buf) return;
     audioHidden.pause();
-    const startPos = (position === 'start') ? trimStartTime : Math.max(0, trimEndTime - 3);
-    playFromPosition(startPos, true);
-    if (position === 'end') {
-        const checkEnd = setInterval(() => {
-            if (audioHidden.currentTime >= trimEndTime || audioHidden.paused) {
-                audioHidden.pause();
-                clearInterval(checkEnd);
-            }
-        }, 50);
+    let startPos;
+    if (position === 'start') {
+        startPos = trimStartTime;
+    } else {
+        // Reproducir los últimos 3 segundos del corte
+        startPos = Math.max(trimStartTime, trimEndTime - 3);
     }
+    playFromPosition(startPos, true);
 }
 
 function seekFromProgressBar(e) {
@@ -783,8 +777,8 @@ function seekFromProgressBar(e) {
     const rect = bar.getBoundingClientRect();
     let pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
     let time = pct * buf.duration;
-    if (isTrimming) {
-        time = Math.max(trimStartTime, Math.min(trimEndTime, time));
+    if (isEditingRange()) {
+        time = Math.max(trimStartTime, Math.min(trimEndTime - 0.02, time));
     }
     audioHidden.pause();
     playFromPosition(time, false);
@@ -794,7 +788,6 @@ function seekFromProgressBar(e) {
     document.getElementById("currentTime").textContent = formatDuracion(time);
 }
 
-// 🔑 APLICAR RECORTE: crear buffer, cambiar src, restaurar pitch, reproducir
 async function applyTrim() {
     const buf = getActiveBuffer();
     if (!buf || !globalAudioCtx) return;
@@ -812,20 +805,16 @@ async function applyTrim() {
     trimmedBuffer = newBuffer;
     trimApplied = true;
 
-    // Crear WAV blob del buffer recortado
     const wavBlob = encodeWAV(trimmedBuffer);
     if (trimmedBlobUrl) URL.revokeObjectURL(trimmedBlobUrl);
     trimmedBlobUrl = URL.createObjectURL(wavBlob);
 
-    // Cambiar src
     audioHidden.pause();
     audioHidden.src = trimmedBlobUrl;
 
-    // 🔑 RESTAURAR EL PITCH que estaba antes de entrar al modo edición
     currentPitchRate = pitchBeforeTrim;
     isTrimming = false;
 
-    // Esperar a que el nuevo src cargue
     await new Promise((resolve) => {
         if (audioHidden.readyState >= 1) return resolve();
         const onReady = () => { audioHidden.removeEventListener("loadedmetadata", onReady); resolve(); };
@@ -833,17 +822,15 @@ async function applyTrim() {
         setTimeout(resolve, 800);
     });
 
-    // 🔑 APLICAR EL PITCH ahora que el nuevo src cargó
     applyPlaybackRate();
 
-    // Actualizar UI
     document.getElementById("statusDur").textContent = formatDuracionSimple(trimmedBuffer.duration);
     document.getElementById("totalTime").textContent = formatDuracion(trimmedBuffer.duration);
     document.getElementById("playhead").style.left = "0%";
     document.getElementById("progressBarFill").style.width = "0%";
     document.getElementById("currentTime").textContent = "0:00.000";
     document.getElementById("inlineAlert").innerHTML =
-        '<div class="inline-alert ok">✅ Corte aplicado · ' + formatDuracionSimple(trimmedBuffer.duration) + '. Ahora se reproduce con el pitch aplicado.</div>';
+        '<div class="inline-alert ok">✅ Corte aplicado · ' + formatDuracionSimple(trimmedBuffer.duration) + '. Se reproduce con el pitch aplicado.</div>';
 
     drawWaveform();
     trimStartTime = 0;
@@ -852,9 +839,8 @@ async function applyTrim() {
     document.getElementById("trimPanel").style.display = "none";
     updateTrimButtonState();
     updateControlsDisabled();
-    applyPitch(); // actualizar el texto del pitchInfo con la nueva duración
+    applyPitch();
 
-    // 🔑 Reproducir automáticamente con el pitch aplicado
     setTimeout(async () => {
         try {
             audioHidden.currentTime = 0;
@@ -876,7 +862,6 @@ function removeTrim() {
     }
     audioHidden.pause();
     audioHidden.src = ORIGINAL_AUDIO_SRC;
-    // Restaurar el pitch
     applyPlaybackRate();
     document.getElementById("statusDur").textContent = formatDuracionSimple(decodedBuffer.duration);
     document.getElementById("totalTime").textContent = formatDuracion(decodedBuffer.duration);
@@ -892,9 +877,6 @@ function removeTrim() {
     applyPitch();
 }
 
-// ============================================================
-// MANEJADORES
-// ============================================================
 const handleLeft = document.getElementById("handleLeft");
 const handleRight = document.getElementById("handleRight");
 const waveformContainer = document.getElementById("waveformContainer");
@@ -935,6 +917,15 @@ function onDrag(e) {
         if (trimEndTime > buf.duration) trimEndTime = buf.duration;
     }
     updateTrimUI();
+
+    // 🔑 Si está sonando y estamos en modo edición, saltar al inicio del nuevo rango
+    // para que el loop se ajuste inmediatamente al nuevo corte
+    if (isEditingRange() && !audioHidden.paused) {
+        const pos = audioHidden.currentTime;
+        if (pos < trimStartTime || pos > trimEndTime) {
+            audioHidden.currentTime = trimStartTime;
+        }
+    }
 }
 
 function stopDrag(e) {
@@ -958,6 +949,7 @@ handleRight.addEventListener("mousedown", (e) => startDrag(e, false));
 handleLeft.addEventListener("touchstart", (e) => startDrag(e, true), { passive: false });
 handleRight.addEventListener("touchstart", (e) => startDrag(e, false), { passive: false });
 
+// 🔑 Click en la onda: si estamos en edición, fuerza dentro del rango
 waveformContainer.addEventListener("click", (e) => {
     const buf = getActiveBuffer();
     if (!buf) return;
@@ -968,8 +960,8 @@ waveformContainer.addEventListener("click", (e) => {
     const pct = Math.max(0, Math.min(1, x / waveformContainer.clientWidth));
     let time = pct * buf.duration;
 
-    if (isTrimming) {
-        time = Math.max(trimStartTime, Math.min(trimEndTime, time));
+    if (isEditingRange()) {
+        time = Math.max(trimStartTime, Math.min(trimEndTime - 0.02, time));
     }
 
     audioHidden.pause();
@@ -981,17 +973,12 @@ waveformContainer.addEventListener("click", (e) => {
     document.getElementById("currentTime").textContent = formatDuracion(time);
 });
 
-// ============================================================
-// MODOS Y PITCH
-// ============================================================
 function applyPitch() {
     const idx = parseInt(document.getElementById("pitchIdx").value);
     const v = VALUES[idx];
     const pitchVal = v.pitch;
-    currentPitchRate = 1 / pitchVal;   // 🔑 Guardar el rate
+    currentPitchRate = 1 / pitchVal;
 
-    // 🔑 Solo aplicar al audio si NO estamos editando
-    // (en modo edición, forzamos rate=1 para escuchar normal)
     if (!isTrimming) {
         applyPlaybackRate();
     }
@@ -1046,6 +1033,7 @@ function toggleMode() {
     else applyManualInfo();
 }
 
+// 🔑 togglePreview: si estamos en edición, siempre reproduce desde trimStartTime (loop)
 function togglePreview() {
     if (isTrimming) return;
     const btn = document.getElementById("previewBtn");
@@ -1418,9 +1406,6 @@ window.addEventListener("resize", () => {
     }
 });
 
-// ============================================================
-// TOASTS
-// ============================================================
 const TIPS = __TIPS_JS__;
 let toastAutoHideTimer = null;
 let lastTipIndex = -1;
