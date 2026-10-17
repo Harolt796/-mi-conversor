@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AKI 😺 Audio Converter</title>
+<meta name="description" content="Convierte el tono y la velocidad de tus canciones para NekoDJ en Roblox. Gratis, en tu navegador, sin subir tu música a ningún servidor.">
+<link rel="icon" href="favicon.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta property="og:title" content="AKI Audio Converter">
+<meta property="og:description" content="Tono y velocidad para NekoDJ en Roblox. Gratis y en tu navegador.">
+<meta property="og:image" content="icon-512.png">
+<meta name="theme-color" content="#07060a">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box}
+html,body{margin:0;font-family:'Inter',system-ui,sans-serif;color:#eae7f5;background:#07060a}
+body{position:relative;overflow-x:hidden;isolation:isolate;min-height:100vh}
+body::before{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;background:url('logo.webp') no-repeat center 22%/min(1200px,160vw);opacity:.1;filter:invert(1) blur(1px);animation:bgBreathe 14s ease-in-out infinite alternate}
+body::after{content:"";position:fixed;inset:-6%;z-index:0;pointer-events:none;background:
+ radial-gradient(38% 32% at 18% 8%,rgba(139,92,246,.20),transparent 60%),
+ radial-gradient(34% 30% at 88% 14%,rgba(78,205,255,.14),transparent 60%),
+ radial-gradient(30% 26% at 10% 85%,rgba(240,166,58,.08),transparent 60%),
+ radial-gradient(45% 38% at 50% 100%,rgba(124,77,255,.14),transparent 65%);animation:bgBreathe 14s ease-in-out infinite alternate}
+@keyframes bgBreathe{0%{transform:scale(1)}100%{transform:scale(1.06) translate(-1%,1%)}}
+main{position:relative;z-index:1;max-width:680px;margin:0 auto;padding:2.2rem 16px 3rem}
+.head{text-align:center;margin:10px 0 .9rem}
+.aki-title{font-family:'JetBrains Mono',monospace;font-weight:800;font-size:2.3rem;letter-spacing:2px;margin:0}
+.aki-title .g{background:linear-gradient(90deg,#8b5cf6,#4ecdff,#f0a63a,#ff5fae,#8b5cf6);background-size:300% auto;-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;animation:akiShimmer 6s linear infinite;filter:drop-shadow(0 0 18px rgba(139,92,246,.3))}
+.aki-cat{display:inline-block;margin:0 2px}
+@keyframes akiShimmer{to{background-position:300% center}}
+.sub{font-family:'JetBrains Mono',monospace;font-size:.72rem;letter-spacing:3px;color:rgba(200,190,220,.5);margin-top:4px;text-transform:uppercase}
+.aki-social-row{display:flex;justify-content:center;gap:10px;flex-wrap:wrap;margin:1rem 0 1.6rem}
+.aki-social{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:999px;font-size:.78rem;font-weight:600;text-decoration:none;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.04);transition:transform .15s,box-shadow .15s,border-color .15s}
+.aki-social:hover{transform:translateY(-2px)}
+.wa{color:#6fe08a}.wa:hover{border-color:rgba(111,224,138,.6);box-shadow:0 4px 14px rgba(111,224,138,.25)}
+.dc{color:#b3a4ff}.dc:hover{border-color:rgba(139,120,255,.6);box-shadow:0 4px 14px rgba(139,120,255,.25)}
+.rb{color:#ff9d9d}.rb:hover{border-color:rgba(255,120,120,.6);box-shadow:0 4px 14px rgba(255,120,120,.25)}
+#drop{position:relative;display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center;border:1.5px dashed rgba(168,130,255,.4);border-radius:20px;background:linear-gradient(160deg,rgba(139,92,246,.06),rgba(255,255,255,.015));backdrop-filter:blur(6px);padding:2.4rem 1.4rem;min-height:168px;cursor:pointer;transition:border-color .2s,background .2s;animation:dashFlow 5s ease-in-out infinite}
+@keyframes dashFlow{0%,100%{box-shadow:0 0 0 0 rgba(139,92,246,0);border-color:rgba(168,130,255,.4)}50%{box-shadow:0 0 26px 0 rgba(139,92,246,.16);border-color:rgba(168,130,255,.7)}}
+#drop:hover,#drop.over{border-color:rgba(168,130,255,.85);background:linear-gradient(160deg,rgba(168,130,255,.10),rgba(255,255,255,.015))}
+#drop .ico{font-size:2.4rem;line-height:1;filter:drop-shadow(0 0 10px rgba(139,92,246,.5))}
+#drop .t{font-size:.85rem;font-weight:500;line-height:1.6;color:rgba(235,230,245,.8)}
+#drop .b{background:linear-gradient(135deg,#8b5cf6,#6d3ff0);color:#fff;border:none;border-radius:10px;padding:.5rem 1.1rem;margin-top:10px;font:600 .8rem 'Inter',sans-serif;pointer-events:none}
+#drop.small{min-height:0;padding:.9rem 1rem;flex-direction:row;justify-content:center;gap:12px;animation:none}
+#drop.small .ico{font-size:1.3rem}#drop.small .b{margin:0}
+#file{position:absolute;width:1px;height:1px;opacity:0}
+#loading{display:none;flex-direction:column;align-items:center;gap:14px;padding:48px 20px;text-align:center}
+#loading .sp{width:52px;height:52px;border-radius:50%;border:3px solid rgba(139,92,246,.18);border-top-color:#a882ff;animation:spin .85s linear infinite}
+#loading .lt{font-family:'JetBrains Mono',monospace;font-size:.78rem;letter-spacing:1.5px;color:rgba(220,213,240,.75)}
+@keyframes spin{to{transform:rotate(360deg)}}
+#err{display:none;margin-top:12px;padding:10px 13px;border-radius:12px;font-size:.82rem;background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.4);color:#ff9d9d}
+#player{display:none;width:100%;border:0;margin-top:14px;background:transparent;min-height:520px}
+.privacy{margin-top:1.6rem;text-align:center;font-size:.74rem;color:rgba(220,213,240,.45);line-height:1.6}
+.privacy a{color:rgba(220,213,240,.7)}
+@media (max-width:600px){body::before,body::after{animation-duration:20s}#drop{animation:none;backdrop-filter:none;padding:1.8rem 1rem;min-height:130px}}
+@media (prefers-reduced-motion:reduce){*{animation:none!important}}
+</style>
+</head>
+<body>
+<main>
+  <div class="head">
+    <h1 class="aki-title"><span class="g">AKI</span><span class="aki-cat">😺</span><span class="g">AUDIO</span></h1>
+    <div class="sub">Convertidor de tono y velocidad · Listo para Roblox</div>
+  </div>
+  <div class="aki-social-row">
+    <a href="https://chat.whatsapp.com/DHjoYtBdji35YNExN79nnG" target="_blank" rel="noopener" class="aki-social wa" title="Grupo de WhatsApp">💬 <span>WhatsApp</span></a>
+    <a href="https://discord.gg/ZaBDgfjw6" target="_blank" rel="noopener" class="aki-social dc" title="Servidor de Discord">🗨️ <span>Discord</span></a>
+    <a href="https://www.roblox.com/join/znagr" target="_blank" rel="noopener" class="aki-social rb" title="Mi juego de Roblox">🎮 <span>Roblox</span></a>
+  </div>
+
+  <label id="drop" for="file">
+    <span class="ico">🎵</span>
+    <span class="t" id="dropText">Arrastra tu canción aquí, o haz clic para buscarla<br>MP3 · WAV · OGG · FLAC · M4A · AAC · OPUS</span>
+    <span class="b" id="dropBtn">Elegir archivo</span>
+    <input type="file" id="file" accept=".mp3,.wav,.ogg,.flac,.m4a,.aac,.opus,audio/*">
+  </label>
+  <div id="err" role="alert"></div>
+
+  <div id="loading"><div class="sp"></div><div class="lt">CARGANDO REPRODUCTOR Y OPCIONES DE TONO…</div></div>
+  <iframe id="player" title="Reproductor AKI Audio"></iframe>
+
+  <p class="privacy">Tu canción se procesa <b>solo en tu dispositivo</b>: no se sube a ningún servidor.<br>
+  Un proyecto de <a href="https://akinori796.com.br" target="_blank" rel="noopener">Akinori796</a>.</p>
+</main>
+
+<script>
+(function(){
+  const EXT = ["mp3","wav","ogg","flac","m4a","aac","opus"];
+  const drop = document.getElementById("drop"), input = document.getElementById("file");
+  const loading = document.getElementById("loading"), frame = document.getElementById("player"), err = document.getElementById("err");
+  let TEMPLATE = null, currentName = null, resizeObs = null;
+
+  function fmtDur(s){ s = Math.max(0, s||0); const m = Math.floor(s/60), r = Math.floor(s%60); return m + ":" + String(r).padStart(2,"0"); }
+  function escHtml(s){ return s.replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+  function escJs(s){ return JSON.stringify(s).slice(1,-1).replace(/<\//g,"<\\/"); }
+  function showErr(msg){ err.textContent = msg; err.style.display = msg ? "block" : "none"; }
+
+  function toBase64(buf){
+    const bytes = new Uint8Array(buf), CH = 0x8000; let bin = "";
+    for (let i = 0; i < bytes.length; i += CH) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + CH));
+    return btoa(bin);
+  }
+  function getDuration(file){
+    return new Promise(res => {
+      const url = URL.createObjectURL(file), a = new Audio();
+      const done = d => { URL.revokeObjectURL(url); res(isFinite(d) ? d : 0); };
+      a.preload = "metadata";
+      a.onloadedmetadata = () => done(a.duration);
+      a.onerror = () => done(0);
+      setTimeout(() => done(a.duration), 8000);
+      a.src = url;
+    });
+  }
+  async function loadTemplate(){
+    if (TEMPLATE) return TEMPLATE;
+    const r = await fetch("player.html", {cache:"force-cache"});
+    if (!r.ok) throw new Error("No se pudo cargar el reproductor (" + r.status + ").");
+    return TEMPLATE = await r.text();
+  }
+
+  async function handle(file){
+    showErr("");
+    if (!file) return;
+    const ext = (file.name.split(".").pop() || "").toLowerCase();
+    if (!EXT.includes(ext)) { showErr("Ese formato no es compatible. Usa MP3, WAV, OGG, FLAC, M4A, AAC u OPUS."); return; }
+    if (file.size > 200 * 1024 * 1024) { showErr("El archivo pesa más de 200 MB. Usa uno más liviano."); return; }
+    if (file.name === currentName && frame.style.display === "block") return;
+    currentName = file.name;
+    frame.style.display = "none"; loading.style.display = "flex";
+    try {
+      const [tpl, buf, dur] = await Promise.all([loadTemplate(), file.arrayBuffer(), getDuration(file)]);
+      const base = file.name.replace(/\.[^.]+$/, "");
+      const html = tpl
+        .split("__NOMBRE_ARCHIVO__").join(escHtml(file.name))
+        .split("__DURACION_TXT__").join(fmtDur(dur))
+        .split("__DURACION_ORIGINAL__").join(String(dur))
+        .split("__NOMBRE_BASE__").join(escJs(base))
+        .split("__AUDIO_B64__").join(toBase64(buf));
+      frame.onload = () => {
+        loading.style.display = "none"; frame.style.display = "block";
+        try {
+          const doc = frame.contentDocument, fit = () => { frame.style.height = (doc.documentElement.scrollHeight + 4) + "px"; };
+          fit(); if (resizeObs) resizeObs.disconnect();
+          resizeObs = new ResizeObserver(fit); resizeObs.observe(doc.body);
+        } catch(e) { frame.style.height = "800px"; }
+      };
+      frame.srcdoc = html;
+      drop.classList.add("small");
+      document.getElementById("dropText").textContent = file.name;
+      document.getElementById("dropBtn").textContent = "Cambiar canción";
+    } catch(e) {
+      loading.style.display = "none"; currentName = null;
+      showErr("No se pudo abrir la canción: " + (e && e.message ? e.message : e));
+    }
+  }
+
+  input.addEventListener("change", () => handle(input.files[0]));
+  ["dragenter","dragover"].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add("over"); }));
+  ["dragleave","drop"].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove("over"); }));
+  drop.addEventListener("drop", e => { const f = e.dataTransfer.files[0]; if (f) handle(f); });
+})();
+</script>
+</body>
+</html>
